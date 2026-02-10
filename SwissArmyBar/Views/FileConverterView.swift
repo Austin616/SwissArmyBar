@@ -22,9 +22,9 @@ struct FileConverterView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 20) {
+        VStack(alignment: .leading, spacing: 16) {
             converterPrimaryPanel
-            converterSettingsPanel
+            converterSettingsRow
         }
     }
 
@@ -57,12 +57,8 @@ struct FileConverterView: View {
 
             InspectorSection(title: "Export", palette: palette) {
                 HStack(spacing: 12) {
-                    Button("Download") { }
-                        .buttonStyle(.borderedProminent)
-                        .tint(palette.accent)
-                    Button("Reveal in Finder") { }
-                        .buttonStyle(.bordered)
-                        .tint(palette.textSecondary)
+                    ThemedButton(title: "Download", style: .primary, size: .regular, palette: palette) { }
+                    ThemedButton(title: "Reveal in Finder", style: .secondary, size: .regular, palette: palette) { }
                 }
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(palette.panelFill.opacity(0.6))
@@ -81,12 +77,11 @@ struct FileConverterView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var converterSettingsPanel: some View {
-        VStack(spacing: 16) {
+    private var converterSettingsRow: some View {
+        HStack(spacing: 16) {
             inputInfoCard
             outputConfigCard
         }
-        .frame(width: 260)
     }
 
     private var inputInfoCard: some View {
@@ -125,11 +120,9 @@ struct FileConverterView: View {
                         .foregroundStyle(palette.textPrimary)
                 }
                 Spacer()
-                Button("Use Suggested") {
+                ThemedButton(title: "Use Suggested", style: .secondary, size: .small, palette: palette) {
                     selectedOutputType = suggestedOutputType
                 }
-                .buttonStyle(.bordered)
-                .tint(palette.accent)
             }
             HStack(spacing: 8) {
                 ForEach(supportedOutputTypes, id: \.self) { type in
@@ -156,13 +149,14 @@ private struct OutputTypeChip: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 Text(title)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
                 if isSuggested {
                     Text("Suggested")
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .padding(.horizontal, 6)
+                        .font(.system(size: 8, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(
                             Capsule()
@@ -173,6 +167,7 @@ private struct OutputTypeChip: View {
             .foregroundStyle(isSelected ? palette.textPrimary : palette.textSecondary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
+            .frame(minHeight: 30)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(isSelected ? palette.accent.opacity(0.18) : palette.panelFill.opacity(0.6))

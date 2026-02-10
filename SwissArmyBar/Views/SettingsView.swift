@@ -1,69 +1,51 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Binding var isCustomTheme: Bool
-    @Binding var selectedThemeIndex: Int
-    @Binding var customThemeIsDark: Bool
-    @Binding var backgroundTopHSV: HSVColor
-    @Binding var backgroundBottomHSV: HSVColor
-    @Binding var panelFillHSV: HSVColor
-    @Binding var cardFillHSV: HSVColor
-    @Binding var accentHSV: HSVColor
-    @Binding var textPrimaryHSV: HSVColor
-    @Binding var textSecondaryHSV: HSVColor
-    let themePresets: [ThemePreset]
+    @ObservedObject var themeStore: ThemeStore
     let palette: Palette
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             InspectorSection(title: "Theme", palette: palette) {
-                ThemeModeToggle(isCustomTheme: $isCustomTheme, palette: palette) {
-                    if isCustomTheme {
-                        customThemeIsDark = themePresets[selectedThemeIndex].isDark
+                ThemeModeToggle(isCustomTheme: $themeStore.isCustomTheme, palette: palette) {
+                    if themeStore.isCustomTheme {
+                        themeStore.customThemeIsDark = themeStore.presets[themeStore.selectedThemeIndex].isDark
                     }
                 }
 
-                Text("ACTIVE: \(isCustomTheme ? "CUSTOM" : themePresets[selectedThemeIndex].name.uppercased())")
+                Text("ACTIVE: \(themeStore.isCustomTheme ? "CUSTOM" : themeStore.presets[themeStore.selectedThemeIndex].name.uppercased())")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(palette.textSecondary)
 
-                if !isCustomTheme {
+                if !themeStore.isCustomTheme {
                     ThemePresetSection(
                         title: "Dark Presets",
-                        presets: themePresets.filter { $0.isDark },
-                        selectedPreset: themePresets[selectedThemeIndex],
+                        presets: themeStore.presets.filter { $0.isDark },
+                        selectedPreset: themeStore.presets[themeStore.selectedThemeIndex],
                         palette: palette
                     ) { preset in
-                        if let index = themePresets.firstIndex(where: { $0.id == preset.id }) {
-                            selectedThemeIndex = index
-                        }
-                        isCustomTheme = false
-                        applyPreset(preset)
+                        themeStore.selectPreset(preset)
                     }
 
                     ThemePresetSection(
                         title: "Light Presets",
-                        presets: themePresets.filter { !$0.isDark },
-                        selectedPreset: themePresets[selectedThemeIndex],
+                        presets: themeStore.presets.filter { !$0.isDark },
+                        selectedPreset: themeStore.presets[themeStore.selectedThemeIndex],
                         palette: palette
                     ) { preset in
-                        if let index = themePresets.firstIndex(where: { $0.id == preset.id }) {
-                            selectedThemeIndex = index
-                        }
-                        isCustomTheme = false
-                        applyPreset(preset)
+                        themeStore.selectPreset(preset)
                     }
                 }
             }
 
-            if isCustomTheme {
+            if themeStore.isCustomTheme {
                 InspectorSection(title: "Palette Editor", palette: palette) {
                     HStack {
                         Text("MODE")
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
                             .foregroundStyle(palette.textSecondary)
                         Spacer()
-                        Picker("", selection: $customThemeIsDark) {
+                        Picker("", selection: $themeStore.customThemeIsDark) {
                             Text("Dark").tag(true)
                             Text("Light").tag(false)
                         }
@@ -73,28 +55,26 @@ struct SettingsView: View {
                         .tint(palette.accent)
                     }
                     InspectorDivider(palette: palette)
-                    ColorRow(title: "Accent", hsv: $accentHSV, palette: palette)
+                    ColorRow(title: "Accent", hsv: $themeStore.accentHSV, palette: palette)
                     InspectorDivider(palette: palette)
-                    ColorRow(title: "Text Primary", hsv: $textPrimaryHSV, palette: palette)
+                    ColorRow(title: "Text Primary", hsv: $themeStore.textPrimaryHSV, palette: palette)
                     InspectorDivider(palette: palette)
-                    ColorRow(title: "Text Secondary", hsv: $textSecondaryHSV, palette: palette)
+                    ColorRow(title: "Text Secondary", hsv: $themeStore.textSecondaryHSV, palette: palette)
                     InspectorDivider(palette: palette)
-                    ColorRow(title: "Background Top", hsv: $backgroundTopHSV, palette: palette)
+                    ColorRow(title: "Background Top", hsv: $themeStore.backgroundTopHSV, palette: palette)
                     InspectorDivider(palette: palette)
-                    ColorRow(title: "Background Bottom", hsv: $backgroundBottomHSV, palette: palette)
+                    ColorRow(title: "Background Bottom", hsv: $themeStore.backgroundBottomHSV, palette: palette)
                     InspectorDivider(palette: palette)
-                    ColorRow(title: "Panel", hsv: $panelFillHSV, palette: palette)
+                    ColorRow(title: "Panel", hsv: $themeStore.panelFillHSV, palette: palette)
                     InspectorDivider(palette: palette)
-                    ColorRow(title: "Card", hsv: $cardFillHSV, palette: palette)
+                    ColorRow(title: "Card", hsv: $themeStore.cardFillHSV, palette: palette)
                 }
 
                 HStack(spacing: 12) {
-                    Button("Revert to Preset") {
-                        applyPreset(themePresets[selectedThemeIndex])
-                        isCustomTheme = false
+                    ThemedButton(title: "Revert to Preset", style: .secondary, size: .small, palette: palette) {
+                        themeStore.applyPreset(themeStore.presets[themeStore.selectedThemeIndex])
+                        themeStore.isCustomTheme = false
                     }
-                    .buttonStyle(.bordered)
-                    .tint(palette.textSecondary)
 
                     Text("Custom palette changes apply immediately.")
                         .font(.system(size: 11, weight: .regular, design: .monospaced))
@@ -102,17 +82,6 @@ struct SettingsView: View {
                 }
             }
         }
-    }
-
-    private func applyPreset(_ preset: ThemePreset) {
-        backgroundTopHSV = preset.backgroundTop
-        backgroundBottomHSV = preset.backgroundBottom
-        panelFillHSV = preset.panelFill
-        cardFillHSV = preset.cardFill
-        accentHSV = preset.accent
-        textPrimaryHSV = preset.textPrimary
-        textSecondaryHSV = preset.textSecondary
-        customThemeIsDark = preset.isDark
     }
 }
 
@@ -222,12 +191,9 @@ struct ColorRow: View {
             Text(hsv.hex)
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .foregroundStyle(palette.textPrimary)
-            Button("Edit") {
+            ThemedButton(title: "Edit", style: .secondary, size: .small, palette: palette) {
                 isPickerPresented = true
             }
-            .buttonStyle(.bordered)
-            .tint(palette.textSecondary)
-            .font(.system(size: 11, weight: .semibold, design: .monospaced))
             .popover(isPresented: $isPickerPresented, arrowEdge: .trailing) {
                 ColorEditorPopover(title: title, hsv: $hsv, palette: palette)
             }

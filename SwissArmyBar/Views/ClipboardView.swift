@@ -95,11 +95,9 @@ struct ClipboardView: View {
                     Stepper("", value: $clipboardHistoryLimit, in: 3...50)
                         .labelsHidden()
                 }
-                Button("Clear History") {
+                ThemedButton(title: "Clear History", style: .secondary, size: .small, palette: palette) {
                     clipboardItems.removeAll()
                 }
-                .buttonStyle(.bordered)
-                .tint(palette.textSecondary)
             }
         }
         .frame(width: 260)

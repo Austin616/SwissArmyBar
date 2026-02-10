@@ -58,7 +58,7 @@ struct ThemePreset: Identifiable {
     let textSecondary: HSVColor
 }
 
-struct HSVColor: Equatable {
+struct HSVColor: Equatable, Codable {
     var h: Double
     var s: Double
     var v: Double
