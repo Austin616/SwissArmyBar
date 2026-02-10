@@ -1,6 +1,6 @@
 import Foundation
 
-struct ClipboardItem: Identifiable {
+struct ClipboardItem: Identifiable, Equatable {
     let id = UUID()
     let text: String
     let source: String

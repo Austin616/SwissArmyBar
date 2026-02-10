@@ -38,9 +38,10 @@ struct SidebarView: View {
                 palette: palette,
                 isFavorite: { settings.isFavorite($0) },
                 onToggleFavorite: { settings.toggleFavorite($0) },
-                draggingTool: $draggingTool
-            ) { dragged, target in
-                settings.moveFavorite(dragged: dragged, over: target)
+                draggingTool: $draggingTool,
+                onMove: { dragged, target in
+                    settings.moveFavorite(dragged: dragged, over: target)
+                }
             )
 
             SidebarSection(
@@ -51,9 +52,10 @@ struct SidebarView: View {
                 palette: palette,
                 isFavorite: { settings.isFavorite($0) },
                 onToggleFavorite: { settings.toggleFavorite($0) },
-                draggingTool: $draggingTool
-            ) { dragged, target in
-                settings.moveTool(dragged: dragged, over: target)
+                draggingTool: $draggingTool,
+                onMove: { dragged, target in
+                    settings.moveTool(dragged: dragged, over: target)
+                }
             )
 
             Spacer(minLength: 12)
@@ -131,9 +133,7 @@ private struct SidebarSection: View {
                     isCollapsed: isCollapsed,
                     palette: palette
                 ) {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        selectedTool = tool
-                    }
+                    selectedTool = tool
                 }
                 .contextMenu {
                     Button(isFavorite(tool) ? "Remove from Favorites" : "Add to Favorites") {

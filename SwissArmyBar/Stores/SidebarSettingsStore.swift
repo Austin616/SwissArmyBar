@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 final class SidebarSettingsStore: ObservableObject {
     @Published var favorites: [Tool] {
@@ -18,6 +19,9 @@ final class SidebarSettingsStore: ObservableObject {
         let allTools = Tool.allCases
         let defaultFavorites: [Tool] = [.clipboard, .focusTimer]
 
+        let resolvedFavorites: [Tool]
+        var resolvedTools: [Tool]
+
         if let data = defaults.data(forKey: storageKey),
            let prefs = try? JSONDecoder().decode(SidebarPreferences.self, from: data) {
             let loadedFavorites = prefs.favoriteToolIds.compactMap { Tool(rawValue: $0) }
@@ -26,15 +30,18 @@ final class SidebarSettingsStore: ObservableObject {
             let uniqueFavorites = Array(NSOrderedSet(array: loadedFavorites)) as? [Tool] ?? []
             let uniqueTools = Array(NSOrderedSet(array: loadedTools)) as? [Tool] ?? []
 
-            favorites = uniqueFavorites.isEmpty ? defaultFavorites : uniqueFavorites
-            tools = uniqueTools.filter { !favorites.contains($0) }
+            resolvedFavorites = uniqueFavorites.isEmpty ? defaultFavorites : uniqueFavorites
+            resolvedTools = uniqueTools.filter { !resolvedFavorites.contains($0) }
 
-            let missing = allTools.filter { !favorites.contains($0) && !tools.contains($0) }
-            tools.append(contentsOf: missing)
+            let missing = allTools.filter { !resolvedFavorites.contains($0) && !resolvedTools.contains($0) }
+            resolvedTools.append(contentsOf: missing)
         } else {
-            favorites = defaultFavorites
-            tools = allTools.filter { !defaultFavorites.contains($0) }
+            resolvedFavorites = defaultFavorites
+            resolvedTools = allTools.filter { !defaultFavorites.contains($0) }
         }
+
+        favorites = resolvedFavorites
+        tools = resolvedTools
 
         isLoaded = true
     }

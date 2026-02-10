@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct FocusTimerView: View {
     @Binding var timerDurationMinutes: Int
@@ -6,6 +7,8 @@ struct FocusTimerView: View {
     @Binding var autoDNDEnabled: Bool
     @Binding var playEndSound: Bool
     let palette: Palette
+    @State private var isRunning = false
+    private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     private var progress: Double {
         timerDurationMinutes > 0
@@ -30,9 +33,17 @@ struct FocusTimerView: View {
                 }
 
                 HStack(spacing: 12) {
-                    TimerActionButton(title: "Start", style: .primary, palette: palette) { }
-                    TimerActionButton(title: "Pause", style: .secondary, palette: palette) { }
+                    TimerActionButton(title: "Start", style: .primary, palette: palette) {
+                        if timerRemainingSeconds == 0 {
+                            timerRemainingSeconds = timerDurationMinutes * 60
+                        }
+                        isRunning = true
+                    }
+                    TimerActionButton(title: "Pause", style: .secondary, palette: palette) {
+                        isRunning = false
+                    }
                     TimerActionButton(title: "Reset", style: .ghost, palette: palette) {
+                        isRunning = false
                         timerRemainingSeconds = timerDurationMinutes * 60
                     }
                 }
@@ -79,6 +90,13 @@ struct FocusTimerView: View {
                     InlineSwitch(title: "Auto DND", isOn: $autoDNDEnabled, palette: palette)
                     InlineSwitch(title: "End Sound", isOn: $playEndSound, palette: palette)
                 }
+            }
+        }
+        .onReceive(tick) { _ in
+            guard isRunning, timerRemainingSeconds > 0 else { return }
+            timerRemainingSeconds -= 1
+            if timerRemainingSeconds == 0 {
+                isRunning = false
             }
         }
     }

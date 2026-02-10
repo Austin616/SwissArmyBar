@@ -6,16 +6,9 @@ struct ContentView: View {
     @State private var isSidebarExpandedInCompact = false
     @State private var isInfoPresented = false
     @StateObject private var themeStore = ThemeStore(presets: ThemeCatalog.presets)
-    @StateObject private var clipboardSettings = ClipboardSettingsStore()
+    @StateObject private var clipboardSettings: ClipboardSettingsStore
+    @StateObject private var clipboardMonitor: ClipboardMonitor
     @StateObject private var sidebarSettings = SidebarSettingsStore()
-
-    @State private var clipboardItems: [ClipboardItem] = [
-        ClipboardItem(text: "Ship MVP build by Friday", source: "Notes", timestamp: "2m ago"),
-        ClipboardItem(text: "https://docs.swissarmybar.dev/cli", source: "Safari", timestamp: "6m ago"),
-        ClipboardItem(text: "config.json updated output path", source: "Xcode", timestamp: "9m ago"),
-        ClipboardItem(text: "Focus block at 2pm", source: "Calendar", timestamp: "12m ago"),
-        ClipboardItem(text: "Signed release build", source: "Terminal", timestamp: "18m ago")
-    ]
     @State private var installedApps: [InstalledApp] = []
 
     @AppStorage("timerDurationMinutes") private var timerDurationMinutes: Int = 25
@@ -26,6 +19,12 @@ struct ContentView: View {
     @State private var detectedInputType = "PNG"
     @State private var selectedOutputType = "JPG"
     private let supportedOutputTypes = ["JPG", "PNG", "HEIC", "WEBP"]
+
+    init() {
+        let settings = ClipboardSettingsStore()
+        _clipboardSettings = StateObject(wrappedValue: settings)
+        _clipboardMonitor = StateObject(wrappedValue: ClipboardMonitor(settings: settings))
+    }
 
     var body: some View {
         let currentIsDark = themeStore.isCustomTheme
@@ -159,12 +158,7 @@ struct ContentView: View {
             Divider()
                 .overlay(palette.divider)
 
-            ZStack {
-                toolView(palette: palette, isCompact: isCompact)
-                    .id(selectedTool)
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
-            }
-            .animation(.easeInOut(duration: 0.22), value: selectedTool)
+            toolView(palette: palette, isCompact: isCompact)
 
             if !isCompact {
                 Spacer()
@@ -176,14 +170,14 @@ struct ContentView: View {
     @ViewBuilder
     private func toolView(palette: Palette, isCompact: Bool) -> some View {
         switch selectedTool {
-        case .clipboard:
-            ClipboardView(
-                clipboardItems: $clipboardItems,
-                settings: clipboardSettings,
-                installedApps: installedApps,
-                isCompact: isCompact,
-                palette: palette
-            )
+            case .clipboard:
+                ClipboardView(
+                    monitor: clipboardMonitor,
+                    settings: clipboardSettings,
+                    installedApps: installedApps,
+                    isCompact: isCompact,
+                    palette: palette
+                )
         case .focusTimer:
             FocusTimerView(
                 timerDurationMinutes: $timerDurationMinutes,

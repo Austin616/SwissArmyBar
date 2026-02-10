@@ -19,12 +19,12 @@ struct NumericInputStepper: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             TextField("", text: $text)
-                .frame(width: 48)
+                .frame(width: 38)
                 .multilineTextAlignment(.trailing)
                 .textFieldStyle(.plain)
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(palette.textPrimary)
                 .onChange(of: text) { _, newValue in
@@ -43,10 +43,10 @@ struct NumericInputStepper: View {
                         value = range.lowerBound
                         text = "\(value)"
                     }
-                }
+            }
 
             Text(suffix)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(palette.textSecondary)
 
             ArrowStepper(
@@ -57,12 +57,14 @@ struct NumericInputStepper: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
+        .frame(minWidth: 0)
+        .fixedSize(horizontal: true, vertical: false)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(palette.panelFill.opacity(0.55))
+                .fill(palette.panelFill.opacity(0.45))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(palette.panelStroke, lineWidth: 1)
+                        .stroke(palette.panelStroke.opacity(0.85), lineWidth: 1)
                 )
         )
     }
@@ -74,30 +76,33 @@ private struct ArrowStepper: View {
     let palette: Palette
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 1) {
             Button(action: increment) {
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(palette.textPrimary)
-                    .frame(width: 20, height: 14)
+                    .frame(width: 16, height: 9)
             }
             .buttonStyle(.plain)
-            Divider()
-                .overlay(palette.panelStroke.opacity(0.8))
+            Rectangle()
+                .fill(palette.panelStroke.opacity(0.7))
+                .frame(width: 12, height: 1)
             Button(action: decrement) {
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(.system(size: 8, weight: .semibold))
                     .foregroundStyle(palette.textPrimary)
-                    .frame(width: 20, height: 14)
+                    .frame(width: 16, height: 9)
             }
             .buttonStyle(.plain)
         }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 4)
         .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(palette.panelFill.opacity(0.7))
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(palette.panelFill.opacity(0.65))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(palette.panelStroke, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .stroke(palette.panelStroke.opacity(0.85), lineWidth: 1)
                 )
         )
     }

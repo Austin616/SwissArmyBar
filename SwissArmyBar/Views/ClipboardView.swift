@@ -1,12 +1,12 @@
 import SwiftUI
 
 struct ClipboardView: View {
-    @Binding var clipboardItems: [ClipboardItem]
+    @ObservedObject var monitor: ClipboardMonitor
     @ObservedObject var settings: ClipboardSettingsStore
     let installedApps: [InstalledApp]
     let isCompact: Bool
     let palette: Palette
-    @State private var appSearch = ""
+    @State private var isExcludedAppsPresented = false
 
     var body: some View {
         Group {
@@ -31,11 +31,11 @@ struct ClipboardView: View {
                     .font(.system(size: 11, weight: .regular, design: .rounded))
                     .foregroundStyle(palette.textSecondary)
                 Spacer()
-                Text("\(min(clipboardItems.count, settings.historyLimit)) saved")
+                Text("\(min(monitor.items.count, settings.historyLimit)) saved")
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(palette.textPrimary)
             }
-            let visibleItems = Array(clipboardItems.prefix(settings.historyLimit))
+            let visibleItems = Array(monitor.items.prefix(settings.historyLimit))
             ForEach(visibleItems) { item in
                 VStack(spacing: 8) {
                     HStack(spacing: 10) {
@@ -56,7 +56,7 @@ struct ClipboardView: View {
                         Spacer()
                         Button {
                             withAnimation(.easeInOut(duration: 0.2)) {
-                                clipboardItems.removeAll { $0.id == item.id }
+                                monitor.remove(item)
                             }
                         } label: {
                             Image(systemName: "xmark")
@@ -78,7 +78,7 @@ struct ClipboardView: View {
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: clipboardItems)
+        .animation(.easeInOut(duration: 0.2), value: monitor.items)
     }
 
     private var clipboardSidePanel: some View {
@@ -118,25 +118,95 @@ struct ClipboardView: View {
                     )
                 }
                 ThemedButton(title: "Clear History", style: .secondary, size: .small, palette: palette) {
-                    clipboardItems.removeAll()
+                    monitor.clear()
                 }
             }
 
-            ConfigCard(title: "Excluded Apps", palette: palette, minHeight: 220) {
+            ConfigCard(title: "Excluded Apps", palette: palette, minHeight: 140) {
+                Text("Exclude clipboard capture from specific apps.")
+                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .foregroundStyle(palette.textSecondary)
                 HStack {
-                    Text("Don’t capture from:")
-                        .font(.system(size: 11, weight: .regular, design: .rounded))
-                        .foregroundStyle(palette.textSecondary)
-                    Spacer()
-                    Text("\(settings.blockedBundleIds.count) blocked")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    Text("\(settings.blockedBundleIds.count) apps blocked")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
+                    Spacer()
+                    ThemedButton(title: "Manage", style: .secondary, size: .small, palette: palette) {
+                        isExcludedAppsPresented = true
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: isCompact ? .infinity : 260, alignment: .leading)
+        .sheet(isPresented: $isExcludedAppsPresented) {
+            ExcludedAppsSheet(
+                settings: settings,
+                installedApps: installedApps,
+                palette: palette
+            )
+        }
+    }
+
+    private func bindingForApp(_ bundleId: String) -> Binding<Bool> {
+        Binding(
+            get: { settings.blockedBundleIds.contains(bundleId) },
+            set: { isBlocked in
+                if isBlocked {
+                    settings.blockedBundleIds.insert(bundleId)
+                } else {
+                    settings.blockedBundleIds.remove(bundleId)
+                }
+            }
+        )
+    }
+}
+
+private struct ExcludedAppsSheet: View {
+    @ObservedObject var settings: ClipboardSettingsStore
+    let installedApps: [InstalledApp]
+    let palette: Palette
+    @Environment(\.dismiss) private var dismiss
+    @State private var search = ""
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [palette.backgroundTop, palette.backgroundBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Excluded Apps")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundStyle(palette.textPrimary)
+                        Text("Choose apps to ignore clipboard activity.")
+                            .font(.system(size: 12, weight: .regular, design: .rounded))
+                            .foregroundStyle(palette.textSecondary)
+                    }
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(palette.textSecondary)
+                            .frame(width: 28, height: 28)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(palette.cardFill)
+                            )
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(palette.textSecondary)
-                    TextField("Filter apps", text: $appSearch)
+                    TextField("Search apps", text: $search)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12, weight: .regular, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
@@ -173,14 +243,25 @@ struct ClipboardView: View {
                         }
                     }
                 }
-                .frame(maxHeight: 180)
+
+                Spacer()
             }
+            .padding(20)
+            .frame(minWidth: 520, minHeight: 420)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(palette.panelFill)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(palette.panelStroke, lineWidth: 1)
+                    )
+            )
+            .padding(16)
         }
-        .frame(maxWidth: isCompact ? .infinity : 260, alignment: .leading)
     }
 
     private var filteredApps: [InstalledApp] {
-        let query = appSearch.trimmingCharacters(in: .whitespacesAndNewlines)
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
         if query.isEmpty {
             return installedApps
         }

@@ -1,4 +1,7 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
+import ImageIO
 
 struct FileConverterView: View {
     @Binding var detectedInputType: String
@@ -6,6 +9,10 @@ struct FileConverterView: View {
     let supportedOutputTypes: [String]
     let isCompact: Bool
     let palette: Palette
+    @State private var droppedURL: URL?
+    @State private var outputURL: URL?
+    @State private var conversionStatus: String?
+    @State private var isDropTargeted = false
 
     private var suggestedOutputType: String {
         switch detectedInputType {
@@ -35,7 +42,7 @@ struct FileConverterView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(style: StrokeStyle(lineWidth: 1.2, dash: [6, 5]))
-                        .foregroundStyle(palette.textSecondary.opacity(0.5))
+                        .foregroundStyle(isDropTargeted ? palette.accent : palette.textSecondary.opacity(0.5))
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
                                 .fill(palette.panelFill.opacity(0.5))
@@ -45,21 +52,41 @@ struct FileConverterView: View {
                         Image(systemName: "tray.and.arrow.down.fill")
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(palette.accent)
-                        Text("Drop a compatible file")
+                        Text(droppedURL?.lastPathComponent ?? "Drop a compatible file")
                             .font(.system(size: 13, weight: .semibold, design: .rounded))
                             .foregroundStyle(palette.textPrimary)
-                        Text("Detects input type automatically")
+                        Text(droppedURL == nil ? "Detects input type automatically" : "Ready to convert")
                             .font(.system(size: 11, weight: .regular, design: .rounded))
                             .foregroundStyle(palette.textSecondary)
+                        ThemedButton(title: "Choose File", style: .secondary, size: .small, palette: palette) {
+                            openFilePicker()
+                        }
                     }
                 }
                 .frame(height: 170)
+                .onDrop(of: [UTType.fileURL], isTargeted: $isDropTargeted) { providers in
+                    guard let provider = providers.first else { return false }
+                    provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                        DispatchQueue.main.async {
+                            guard let data = item as? Data,
+                                  let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
+                            handlePickedURL(url)
+                        }
+                    }
+                    return true
+                }
             }
 
             InspectorSection(title: "Export", palette: palette) {
                 HStack(spacing: 12) {
-                    ThemedButton(title: "Download", style: .primary, size: .regular, palette: palette) { }
-                    ThemedButton(title: "Reveal in Finder", style: .secondary, size: .regular, palette: palette) { }
+                    ThemedButton(title: "Convert", style: .primary, size: .regular, palette: palette) {
+                        convertFile()
+                    }
+                    ThemedButton(title: "Reveal in Finder", style: .secondary, size: .regular, palette: palette) {
+                        if let outputURL {
+                            NSWorkspace.shared.activateFileViewerSelecting([outputURL])
+                        }
+                    }
                 }
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(palette.panelFill.opacity(0.6))
@@ -68,7 +95,7 @@ struct FileConverterView: View {
                         HStack(spacing: 10) {
                             Image(systemName: "hand.draw")
                                 .foregroundStyle(palette.accent)
-                            Text("Hold the file thumbnail to drag it out.")
+                            Text(conversionStatus ?? "Drop a file to enable conversion.")
                                 .font(.system(size: 12, weight: .regular, design: .rounded))
                                 .foregroundStyle(palette.textSecondary)
                         }
@@ -147,6 +174,88 @@ struct FileConverterView: View {
                 }
             }
         }
+    }
+
+    private func convertFile() {
+        guard let inputURL = droppedURL else {
+            conversionStatus = "Drop a file first."
+            return
+        }
+        guard let image = NSImage(contentsOf: inputURL) else {
+            conversionStatus = "Unsupported file."
+            return
+        }
+
+        let outputExtension = selectedOutputType.lowercased()
+        let outputName = inputURL.deletingPathExtension().lastPathComponent + "-converted.\(outputExtension)"
+        let output = FileManager.default.temporaryDirectory.appendingPathComponent(outputName)
+
+        let success: Bool
+        switch selectedOutputType.uppercased() {
+        case "JPG", "JPEG":
+            success = write(image: image, to: output, type: .jpeg, compression: 0.9)
+        case "PNG":
+            success = write(image: image, to: output, type: .png, compression: 1.0)
+        case "HEIC":
+            success = writeHEIC(image: image, to: output)
+        default:
+            conversionStatus = "Format not supported yet."
+            return
+        }
+
+        if success {
+            outputURL = output
+            conversionStatus = "Converted to \(selectedOutputType.uppercased())."
+        } else {
+            conversionStatus = "Conversion failed."
+        }
+    }
+
+    private func openFilePicker() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.image]
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            handlePickedURL(url)
+        }
+    }
+
+    private func handlePickedURL(_ url: URL) {
+        droppedURL = url
+        detectedInputType = url.pathExtension.uppercased()
+        if supportedOutputTypes.contains(suggestedOutputType) {
+            selectedOutputType = suggestedOutputType
+        }
+        conversionStatus = nil
+        outputURL = nil
+    }
+
+    private func write(image: NSImage, to url: URL, type: NSBitmapImageRep.FileType, compression: CGFloat) -> Bool {
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let data = rep.representation(using: type, properties: [.compressionFactor: compression]) else {
+            return false
+        }
+        do {
+            try data.write(to: url)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func writeHEIC(image: NSImage, to url: URL) -> Bool {
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            return false
+        }
+        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.heic.identifier as CFString, 1, nil) else {
+            return false
+        }
+        let options: CFDictionary = [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary
+        CGImageDestinationAddImage(destination, cgImage, options)
+        return CGImageDestinationFinalize(destination)
     }
 }
 
