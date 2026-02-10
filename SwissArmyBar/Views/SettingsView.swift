@@ -70,6 +70,7 @@ struct SettingsView: View {
                         .labelsHidden()
                         .pickerStyle(.segmented)
                         .frame(width: 160)
+                        .tint(palette.accent)
                     }
                     InspectorDivider(palette: palette)
                     ColorRow(title: "Accent", hsv: $accentHSV, palette: palette)
@@ -191,6 +192,7 @@ struct ThemeModeToggle: View {
             .labelsHidden()
             .pickerStyle(.segmented)
             .frame(width: 200)
+            .tint(palette.accent)
             .onChange(of: isCustomTheme) { _, _ in
                 onChange()
             }

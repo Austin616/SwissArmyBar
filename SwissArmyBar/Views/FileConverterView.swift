@@ -3,7 +3,6 @@ import SwiftUI
 struct FileConverterView: View {
     @Binding var detectedInputType: String
     @Binding var selectedOutputType: String
-    @Binding var useSuggestedOutput: Bool
     let supportedOutputTypes: [String]
     let palette: Palette
 
@@ -23,7 +22,14 @@ struct FileConverterView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        HStack(alignment: .top, spacing: 20) {
+            converterPrimaryPanel
+            converterSettingsPanel
+        }
+    }
+
+    private var converterPrimaryPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
             InspectorSection(title: "Drop Zone", palette: palette) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -46,61 +52,7 @@ struct FileConverterView: View {
                             .foregroundStyle(palette.textSecondary)
                     }
                 }
-                .frame(height: 150)
-            }
-
-            InspectorSection(title: "Detected", palette: palette) {
-                HStack {
-                    Text("INPUT TYPE")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(palette.textSecondary)
-                    Spacer()
-                    Text(detectedInputType)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(palette.textPrimary)
-                }
-                InspectorDivider(palette: palette)
-                HStack {
-                    Text("SUGGESTED")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(palette.textSecondary)
-                    Spacer()
-                    Text(suggestedOutputType)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(palette.textPrimary)
-                }
-                InspectorDivider(palette: palette)
-                HStack {
-                    Text("OUTPUT TYPE")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(palette.textSecondary)
-                    Spacer()
-                    Picker("", selection: $selectedOutputType) {
-                        ForEach(supportedOutputTypes, id: \.self) { type in
-                            Text(type).tag(type)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-                    .frame(width: 220)
-                    .disabled(useSuggestedOutput)
-                }
-                InspectorDivider(palette: palette)
-                HStack {
-                    Text("USE SUGGESTED")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(palette.textSecondary)
-                    Spacer()
-                    Toggle("", isOn: $useSuggestedOutput)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .tint(palette.accent)
-                        .onChange(of: useSuggestedOutput) { _, newValue in
-                            if newValue {
-                                selectedOutputType = suggestedOutputType
-                            }
-                        }
-                }
+                .frame(height: 170)
             }
 
             InspectorSection(title: "Export", palette: palette) {
@@ -126,10 +78,110 @@ struct FileConverterView: View {
                     )
             }
         }
-        .onChange(of: detectedInputType) { _, _ in
-            if useSuggestedOutput {
-                selectedOutputType = suggestedOutputType
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var converterSettingsPanel: some View {
+        VStack(spacing: 16) {
+            inputInfoCard
+            outputConfigCard
+        }
+        .frame(width: 260)
+    }
+
+    private var inputInfoCard: some View {
+        ConfigCard(title: "Input", palette: palette, minHeight: 150) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Detected type")
+                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .foregroundStyle(palette.textSecondary)
+                    Text(detectedInputType)
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Suggested")
+                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .foregroundStyle(palette.textSecondary)
+                    Text(suggestedOutputType)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                }
             }
         }
+    }
+
+    private var outputConfigCard: some View {
+        ConfigCard(title: "Output", palette: palette, minHeight: 150) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Target format")
+                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .foregroundStyle(palette.textSecondary)
+                    Text(selectedOutputType)
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                }
+                Spacer()
+                Button("Use Suggested") {
+                    selectedOutputType = suggestedOutputType
+                }
+                .buttonStyle(.bordered)
+                .tint(palette.accent)
+            }
+            HStack(spacing: 8) {
+                ForEach(supportedOutputTypes, id: \.self) { type in
+                    OutputTypeChip(
+                        title: type,
+                        isSelected: selectedOutputType == type,
+                        isSuggested: suggestedOutputType == type,
+                        palette: palette
+                    ) {
+                        selectedOutputType = type
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct OutputTypeChip: View {
+    let title: String
+    let isSelected: Bool
+    let isSuggested: Bool
+    let palette: Palette
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                if isSuggested {
+                    Text("Suggested")
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(palette.accent.opacity(0.16))
+                        )
+                }
+            }
+            .foregroundStyle(isSelected ? palette.textPrimary : palette.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isSelected ? palette.accent.opacity(0.18) : palette.panelFill.opacity(0.6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(isSelected ? palette.accent : palette.panelStroke, lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
     }
 }

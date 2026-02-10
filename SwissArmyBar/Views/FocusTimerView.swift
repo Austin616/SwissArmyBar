@@ -15,16 +15,25 @@ struct FocusTimerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top, spacing: 20) {
+                timerPrimaryPanel
+                timerSettingsPanel
+            }
+        }
+    }
+
+    private var timerPrimaryPanel: some View {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 24) {
                 ZStack {
                     ProgressRing(progress: progress, accent: palette.accent, track: palette.panelStroke)
-                        .frame(width: 160, height: 160)
+                        .frame(width: 150, height: 150)
                     VStack(spacing: 6) {
                         Text("TIME REMAINING")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
                             .foregroundStyle(palette.textSecondary)
                         Text(formatTime(timerRemainingSeconds))
-                            .font(.system(size: 28, weight: .semibold, design: .rounded))
+                            .font(.system(size: 30, weight: .semibold, design: .rounded))
                             .foregroundStyle(palette.textPrimary)
                     }
                 }
@@ -52,61 +61,74 @@ struct FocusTimerView: View {
                     }
                 }
             }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(palette.cardFill)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(palette.panelStroke, lineWidth: 1)
+                    )
+            )
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
 
-            InspectorSection(title: "Configuration", palette: palette) {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("DURATION")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(palette.textSecondary)
-                        Spacer()
-                        Text("\(Int(timerDurationMinutes)) min")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(palette.textPrimary)
-                    }
-                    Slider(value: $timerDurationMinutes, in: 5...90, step: 5)
-                        .tint(palette.accent)
-                        .onChange(of: timerDurationMinutes) { _, newValue in
-                            timerRemainingSeconds = Int(newValue * 60)
-                        }
-                    HStack(spacing: 8) {
-                        QuickDurationButton(title: "15", value: 15, palette: palette) {
-                            timerDurationMinutes = 15
-                            timerRemainingSeconds = 15 * 60
-                        }
-                        QuickDurationButton(title: "25", value: 25, palette: palette) {
-                            timerDurationMinutes = 25
-                            timerRemainingSeconds = 25 * 60
-                        }
-                        QuickDurationButton(title: "50", value: 50, palette: palette) {
-                            timerDurationMinutes = 50
-                            timerRemainingSeconds = 50 * 60
-                        }
-                    }
+    private var timerSettingsPanel: some View {
+        VStack(spacing: 16) {
+            configDurationCard
+            configAutomationCard
+        }
+        .frame(width: 260)
+    }
+
+    private var configDurationCard: some View {
+        ConfigCard(title: "Duration", palette: palette, minHeight: 180) {
+            HStack {
+                Text("\(Int(timerDurationMinutes)) min")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(palette.textPrimary)
+                Spacer()
+                Text("Session length")
+                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .foregroundStyle(palette.textSecondary)
+            }
+            Slider(value: $timerDurationMinutes, in: 5...90, step: 5)
+                .tint(palette.accent)
+                .onChange(of: timerDurationMinutes) { _, newValue in
+                    timerRemainingSeconds = Int(newValue * 60)
                 }
-                InspectorDivider(palette: palette)
-                HStack {
-                    Text("AUTO DND")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(palette.textSecondary)
-                    Spacer()
-                    Toggle("", isOn: $autoDNDEnabled)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .tint(palette.accent)
+            HStack(spacing: 8) {
+                QuickDurationButton(title: "15", value: 15, palette: palette) {
+                    timerDurationMinutes = 15
+                    timerRemainingSeconds = 15 * 60
                 }
-                InspectorDivider(palette: palette)
-                HStack {
-                    Text("END SOUND")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(palette.textSecondary)
-                    Spacer()
-                    Toggle("", isOn: $playEndSound)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                        .tint(palette.accent)
+                QuickDurationButton(title: "25", value: 25, palette: palette) {
+                    timerDurationMinutes = 25
+                    timerRemainingSeconds = 25 * 60
+                }
+                QuickDurationButton(title: "50", value: 50, palette: palette) {
+                    timerDurationMinutes = 50
+                    timerRemainingSeconds = 50 * 60
                 }
             }
+        }
+    }
+
+    private var configAutomationCard: some View {
+        ConfigCard(title: "Automation", palette: palette, minHeight: 180) {
+            ToggleRow(
+                title: "Auto DND",
+                subtitle: "Enable Do Not Disturb on start",
+                isOn: $autoDNDEnabled,
+                palette: palette
+            )
+            ToggleRow(
+                title: "End Sound",
+                subtitle: "Play a sound when complete",
+                isOn: $playEndSound,
+                palette: palette
+            )
         }
     }
 
@@ -114,6 +136,31 @@ struct FocusTimerView: View {
         let minutes = max(0, seconds) / 60
         let remaining = max(0, seconds) % 60
         return String(format: "%02d:%02d", minutes, remaining)
+    }
+}
+
+private struct ToggleRow: View {
+    let title: String
+    let subtitle: String
+    @Binding var isOn: Bool
+    let palette: Palette
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(palette.textPrimary)
+                Text(subtitle)
+                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .foregroundStyle(palette.textSecondary)
+            }
+            Spacer()
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .tint(palette.accent)
+        }
     }
 }
 

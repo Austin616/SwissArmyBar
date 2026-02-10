@@ -8,10 +8,10 @@ struct ProgressRing: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(track.opacity(0.5), lineWidth: 10)
+                .stroke(track.opacity(0.35), lineWidth: 8)
             Circle()
                 .trim(from: 0, to: progress.clamped(to: 0...1))
-                .stroke(accent, style: StrokeStyle(lineWidth: 10, lineCap: .round))
+                .stroke(accent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
     }

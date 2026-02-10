@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var selectedTool: Tool = .clipboard
+    @State private var isSidebarCollapsed = false
+    @State private var isInfoPresented = false
 
     @State private var selectedThemeIndex = 0
     @State private var isCustomTheme = false
@@ -30,7 +32,6 @@ struct ContentView: View {
 
     @State private var detectedInputType = "PNG"
     @State private var selectedOutputType = "JPG"
-    @State private var useSuggestedOutput = true
     private let supportedOutputTypes = ["JPG", "PNG", "HEIC", "WEBP"]
 
     private let themePresets: [ThemePreset] = [
@@ -171,7 +172,12 @@ struct ContentView: View {
                 .ignoresSafeArea()
 
             HStack(spacing: 20) {
-                SidebarView(selectedTool: $selectedTool, palette: palette)
+                SidebarView(
+                    selectedTool: $selectedTool,
+                    isCollapsed: isSidebarCollapsed,
+                    palette: palette
+                )
+                .animation(.easeInOut(duration: 0.2), value: isSidebarCollapsed)
                 detailArea(palette: palette)
             }
             .padding(24)
@@ -182,13 +188,46 @@ struct ContentView: View {
 
     private func detailArea(palette: Palette) -> some View {
         VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(selectedTool.rawValue)
-                    .font(.system(size: 24, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(palette.textPrimary)
-                Text(selectedTool.subtitle)
-                    .font(.system(size: 12, weight: .regular, design: .monospaced))
-                    .foregroundStyle(palette.textSecondary)
+            HStack(alignment: .center, spacing: 12) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isSidebarCollapsed.toggle()
+                    }
+                } label: {
+                    Image(systemName: isSidebarCollapsed ? "sidebar.trailing" : "sidebar.leading")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(palette.textSecondary)
+                        .frame(width: 28, height: 28)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(palette.panelFill.opacity(0.6))
+                        )
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut("s", modifiers: [.command])
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(selectedTool.rawValue)
+                        .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(palette.textPrimary)
+                    Text(selectedTool.subtitle)
+                        .font(.system(size: 12, weight: .regular, design: .monospaced))
+                        .foregroundStyle(palette.textSecondary)
+                }
+                Spacer()
+                Button {
+                    isInfoPresented = true
+                } label: {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(palette.textSecondary)
+                        .frame(width: 28, height: 28)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(palette.panelFill.opacity(0.6))
+                        )
+                }
+                .buttonStyle(.plain)
             }
 
             Divider()
@@ -213,7 +252,6 @@ struct ContentView: View {
                 FileConverterView(
                     detectedInputType: $detectedInputType,
                     selectedOutputType: $selectedOutputType,
-                    useSuggestedOutput: $useSuggestedOutput,
                     supportedOutputTypes: supportedOutputTypes,
                     palette: palette
                 )
@@ -246,6 +284,9 @@ struct ContentView: View {
                         .stroke(palette.panelStroke, lineWidth: 1)
                 )
         )
+        .sheet(isPresented: $isInfoPresented) {
+            InfoSheetView(palette: palette)
+        }
     }
 }
 

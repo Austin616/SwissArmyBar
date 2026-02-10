@@ -6,52 +6,25 @@ struct ClipboardView: View {
     let palette: Palette
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 16) {
-                StatCard(
-                    title: "Saved",
-                    value: "\(min(clipboardItems.count, clipboardHistoryLimit)) / \(clipboardHistoryLimit)",
-                    subtitle: "Text clips",
-                    palette: palette
-                )
-                StatCard(
-                    title: "Listener",
-                    value: "Active",
-                    subtitle: "Text only",
-                    palette: palette
-                )
-            }
+        HStack(alignment: .top, spacing: 20) {
+            clipboardPrimaryPanel
+            clipboardSidePanel
+        }
+    }
 
-            InspectorSection(title: "Storage", palette: palette) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("HISTORY LIMIT")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(palette.textSecondary)
-                        Text("\(clipboardHistoryLimit) items")
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
-                            .foregroundStyle(palette.textPrimary)
-                    }
-                    Spacer()
-                    Stepper("", value: $clipboardHistoryLimit, in: 3...50)
-                        .labelsHidden()
-                }
-                InspectorDivider(palette: palette)
-                HStack {
-                    Text("CLEAR ALL")
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(palette.textSecondary)
-                    Spacer()
-                    Button("Clear History") {
-                        clipboardItems.removeAll()
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(palette.textSecondary)
-                }
+    private var clipboardPrimaryPanel: some View {
+        ConfigCard(title: "Recent Clips", palette: palette) {
+            HStack {
+                Text("Showing last \(clipboardHistoryLimit) items")
+                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .foregroundStyle(palette.textSecondary)
+                Spacer()
+                Text("\(min(clipboardItems.count, clipboardHistoryLimit)) saved")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(palette.textPrimary)
             }
-
-            InspectorSection(title: "Recent Clips", palette: palette) {
-                ForEach(clipboardItems) { item in
+            ForEach(clipboardItems) { item in
+                VStack(spacing: 8) {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(item.text)
@@ -83,10 +56,52 @@ struct ClipboardView: View {
                         .buttonStyle(.plain)
                     }
                     if item.id != clipboardItems.last?.id {
-                        InspectorDivider(palette: palette)
+                        Divider()
+                            .overlay(palette.divider)
                     }
                 }
             }
         }
+    }
+
+    private var clipboardSidePanel: some View {
+        VStack(spacing: 16) {
+            ConfigCard(title: "Capture", palette: palette, minHeight: 140) {
+                HStack {
+                    Text("Status")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                    Spacer()
+                    Text("Active")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                }
+                Text("Listening for text snippets only.")
+                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .foregroundStyle(palette.textSecondary)
+            }
+
+            ConfigCard(title: "Storage", palette: palette, minHeight: 140) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("History limit")
+                            .font(.system(size: 11, weight: .regular, design: .rounded))
+                            .foregroundStyle(palette.textSecondary)
+                        Text("\(clipboardHistoryLimit) items")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundStyle(palette.textPrimary)
+                    }
+                    Spacer()
+                    Stepper("", value: $clipboardHistoryLimit, in: 3...50)
+                        .labelsHidden()
+                }
+                Button("Clear History") {
+                    clipboardItems.removeAll()
+                }
+                .buttonStyle(.bordered)
+                .tint(palette.textSecondary)
+            }
+        }
+        .frame(width: 260)
     }
 }
