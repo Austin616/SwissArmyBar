@@ -13,5 +13,7 @@ struct SwissArmyBarApp: App {
         WindowGroup {
             ContentView()
         }
+        .defaultSize(width: 1024, height: 700)
+        .windowResizability(.contentMinSize)
     }
 }

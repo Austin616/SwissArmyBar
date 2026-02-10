@@ -4,6 +4,7 @@ struct FileConverterView: View {
     @Binding var detectedInputType: String
     @Binding var selectedOutputType: String
     let supportedOutputTypes: [String]
+    let isCompact: Bool
     let palette: Palette
 
     private var suggestedOutputType: String {
@@ -78,9 +79,18 @@ struct FileConverterView: View {
     }
 
     private var converterSettingsRow: some View {
-        HStack(spacing: 16) {
-            inputInfoCard
-            outputConfigCard
+        Group {
+            if isCompact {
+                VStack(spacing: 16) {
+                    inputInfoCard
+                    outputConfigCard
+                }
+            } else {
+                HStack(spacing: 16) {
+                    inputInfoCard
+                    outputConfigCard
+                }
+            }
         }
     }
 

@@ -14,98 +14,73 @@ struct FocusTimerView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack {
-                Spacer()
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(spacing: 18) {
                 ZStack {
                     ProgressRing(progress: progress, accent: palette.accent, track: palette.panelStroke)
-                        .frame(width: 190, height: 190)
+                        .frame(width: 220, height: 220)
                     VStack(spacing: 6) {
                         Text("TIME REMAINING")
                             .font(.system(size: 10, weight: .semibold, design: .monospaced))
                             .foregroundStyle(palette.textSecondary)
                         Text(formatTime(timerRemainingSeconds))
-                            .font(.system(size: 34, weight: .semibold, design: .rounded))
+                            .font(.system(size: 40, weight: .semibold, design: .rounded))
                             .foregroundStyle(palette.textPrimary)
                     }
                 }
-                Spacer()
-            }
 
-            HStack(spacing: 12) {
-                ThemedButton(title: "Start", style: .primary, size: .regular, palette: palette) { }
-                ThemedButton(title: "Pause", style: .secondary, size: .regular, palette: palette) { }
-                ThemedButton(title: "Reset", style: .secondary, size: .regular, palette: palette) {
-                    timerRemainingSeconds = Int(timerDurationMinutes * 60)
+                HStack(spacing: 12) {
+                    TimerActionButton(title: "Start", style: .primary, palette: palette) { }
+                    TimerActionButton(title: "Pause", style: .secondary, palette: palette) { }
+                    TimerActionButton(title: "Reset", style: .ghost, palette: palette) {
+                        timerRemainingSeconds = Int(timerDurationMinutes * 60)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .center)
 
-            settingsBar
-        }
-    }
+            Divider()
+                .overlay(palette.divider.opacity(0.7))
 
-    private var settingsBar: some View {
-        HStack(alignment: .center, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Duration")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(palette.textSecondary)
-                HStack {
-                    Text("\(Int(timerDurationMinutes)) min")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundStyle(palette.textPrimary)
-                    Spacer()
-                }
-                Slider(value: $timerDurationMinutes, in: 5...90, step: 5)
-                    .tint(palette.accent)
+            HStack(alignment: .center, spacing: 20) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Duration")
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(palette.textSecondary)
+                    NumericInputStepper(
+                        value: $timerDurationMinutes,
+                        range: 5...90,
+                        step: 5,
+                        suffix: "min",
+                        palette: palette
+                    )
                     .onChange(of: timerDurationMinutes) { _, newValue in
                         timerRemainingSeconds = Int(newValue * 60)
                     }
-            HStack(spacing: 8) {
-                QuickDurationButton(title: "15", value: 15, palette: palette) {
-                    timerDurationMinutes = 15
-                    timerRemainingSeconds = 15 * 60
+                    HStack(spacing: 8) {
+                        DurationChip(title: "15m", isSelected: Int(timerDurationMinutes) == 15, palette: palette) {
+                            timerDurationMinutes = 15
+                            timerRemainingSeconds = 15 * 60
+                        }
+                        DurationChip(title: "25m", isSelected: Int(timerDurationMinutes) == 25, palette: palette) {
+                            timerDurationMinutes = 25
+                            timerRemainingSeconds = 25 * 60
+                        }
+                        DurationChip(title: "50m", isSelected: Int(timerDurationMinutes) == 50, palette: palette) {
+                            timerDurationMinutes = 50
+                            timerRemainingSeconds = 50 * 60
+                        }
+                    }
                 }
-                QuickDurationButton(title: "25", value: 25, palette: palette) {
-                    timerDurationMinutes = 25
-                    timerRemainingSeconds = 25 * 60
-                }
-                QuickDurationButton(title: "50", value: 50, palette: palette) {
-                    timerDurationMinutes = 50
-                    timerRemainingSeconds = 50 * 60
-                }
-            }
-            }
 
-            Divider()
-                .frame(height: 72)
-                .overlay(palette.divider)
+                Spacer(minLength: 0)
 
-            VStack(alignment: .leading, spacing: 12) {
-                ToggleRow(
-                    title: "Auto DND",
-                    subtitle: "Enable Do Not Disturb on start",
-                    isOn: $autoDNDEnabled,
-                    palette: palette
-                )
-                ToggleRow(
-                    title: "End Sound",
-                    subtitle: "Play a sound when complete",
-                    isOn: $playEndSound,
-                    palette: palette
-                )
+                HStack(spacing: 16) {
+                    InlineSwitch(title: "Auto DND", isOn: $autoDNDEnabled, palette: palette)
+                    InlineSwitch(title: "End Sound", isOn: $playEndSound, palette: palette)
+                }
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(palette.cardFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(palette.panelStroke, lineWidth: 1)
-                )
-        )
     }
 
     private func formatTime(_ seconds: Int) -> String {
@@ -115,38 +90,99 @@ struct FocusTimerView: View {
     }
 }
 
-private struct ToggleRow: View {
-    let title: String
-    let subtitle: String
-    @Binding var isOn: Bool
-    let palette: Palette
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(palette.textPrimary)
-                Text(subtitle)
-                    .font(.system(size: 11, weight: .regular, design: .rounded))
-                    .foregroundStyle(palette.textSecondary)
-            }
-            Spacer()
-            Toggle("", isOn: $isOn)
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .tint(palette.accent)
-        }
-    }
+private enum TimerButtonStyle {
+    case primary
+    case secondary
+    case ghost
 }
 
-struct QuickDurationButton: View {
+private struct TimerActionButton: View {
     let title: String
-    let value: Double
+    let style: TimerButtonStyle
     let palette: Palette
     let action: () -> Void
 
     var body: some View {
-        ThemedButton(title: "\(title)m", style: .secondary, size: .small, palette: palette, action: action)
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(foregroundColor)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 7)
+                .background(backgroundShape)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var foregroundColor: Color {
+        switch style {
+        case .primary:
+            return Color.white
+        case .secondary:
+            return palette.textPrimary
+        case .ghost:
+            return palette.textSecondary
+        }
+    }
+
+    @ViewBuilder
+    private var backgroundShape: some View {
+        switch style {
+        case .primary:
+            Capsule().fill(palette.accent)
+        case .secondary:
+            Capsule()
+                .fill(palette.panelFill.opacity(0.5))
+                .overlay(
+                    Capsule().stroke(palette.panelStroke, lineWidth: 1)
+                )
+        case .ghost:
+            Capsule()
+                .fill(Color.clear)
+                .overlay(
+                    Capsule().stroke(palette.panelStroke.opacity(0.6), lineWidth: 1)
+                )
+        }
+    }
+}
+
+private struct DurationChip: View {
+    let title: String
+    let isSelected: Bool
+    let palette: Palette
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(isSelected ? palette.textPrimary : palette.textSecondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? palette.accent.opacity(0.18) : palette.panelFill.opacity(0.5))
+                        .overlay(
+                            Capsule().stroke(isSelected ? palette.accent : palette.panelStroke, lineWidth: 1)
+                        )
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct InlineSwitch: View {
+    let title: String
+    @Binding var isOn: Bool
+    let palette: Palette
+
+    var body: some View {
+        Toggle(isOn: $isOn) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(palette.textPrimary)
+        }
+        .toggleStyle(.switch)
+        .tint(palette.accent)
     }
 }

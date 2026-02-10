@@ -3,12 +3,23 @@ import SwiftUI
 struct ClipboardView: View {
     @Binding var clipboardItems: [ClipboardItem]
     @Binding var clipboardHistoryLimit: Int
+    @Binding var blockedApps: [ClipboardApp]
+    let isCompact: Bool
     let palette: Palette
 
     var body: some View {
-        HStack(alignment: .top, spacing: 20) {
-            clipboardPrimaryPanel
-            clipboardSidePanel
+        Group {
+            if isCompact {
+                VStack(alignment: .leading, spacing: 16) {
+                    clipboardPrimaryPanel
+                    clipboardSidePanel
+                }
+            } else {
+                HStack(alignment: .top, spacing: 20) {
+                    clipboardPrimaryPanel
+                    clipboardSidePanel
+                }
+            }
         }
     }
 
@@ -85,21 +96,50 @@ struct ClipboardView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("History limit")
-                            .font(.system(size: 11, weight: .regular, design: .rounded))
-                            .foregroundStyle(palette.textSecondary)
-                        Text("\(clipboardHistoryLimit) items")
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .foregroundStyle(palette.textSecondary)
+                        Text("Max saved clips")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundStyle(palette.textPrimary)
                     }
                     Spacer()
-                    Stepper("", value: $clipboardHistoryLimit, in: 3...50)
-                        .labelsHidden()
+                    NumericInputStepper(
+                        value: Binding(
+                            get: { Double(clipboardHistoryLimit) },
+                            set: { clipboardHistoryLimit = Int($0) }
+                        ),
+                        range: 3...50,
+                        step: 1,
+                        suffix: "items",
+                        palette: palette
+                    )
                 }
                 ThemedButton(title: "Clear History", style: .secondary, size: .small, palette: palette) {
                     clipboardItems.removeAll()
                 }
             }
+
+            ConfigCard(title: "Excluded Apps", palette: palette, minHeight: 160) {
+                Text("Don’t capture clipboard from:")
+                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .foregroundStyle(palette.textSecondary)
+
+                VStack(spacing: 8) {
+                    ForEach($blockedApps) { $app in
+                        HStack {
+                            Text(app.name)
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(palette.textPrimary)
+                            Spacer()
+                            Toggle("", isOn: $app.isBlocked)
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .tint(palette.accent)
+                        }
+                    }
+                }
+            }
         }
-        .frame(width: 260)
+        .frame(maxWidth: isCompact ? .infinity : 260, alignment: .leading)
     }
 }

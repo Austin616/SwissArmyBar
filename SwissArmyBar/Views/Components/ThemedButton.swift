@@ -46,17 +46,17 @@ struct ThemedButton: View {
     private var backgroundShape: some View {
         switch style {
         case .primary:
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            Capsule()
                 .fill(palette.accent)
         case .secondary:
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(palette.panelFill.opacity(0.6))
+            Capsule()
+                .fill(palette.panelFill.opacity(0.5))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    Capsule()
                         .stroke(palette.panelStroke, lineWidth: 1)
                 )
         case .ghost:
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            Capsule()
                 .fill(Color.clear)
         }
     }
@@ -66,14 +66,14 @@ struct ThemedButton: View {
     }
 
     private var horizontalPadding: CGFloat {
-        size == .small ? 10 : 14
+        size == .small ? 10 : 16
     }
 
     private var verticalPadding: CGFloat {
-        size == .small ? 6 : 8
+        size == .small ? 5 : 7
     }
 
     private var minHeight: CGFloat {
-        size == .small ? 26 : 30
+        size == .small ? 24 : 28
     }
 }

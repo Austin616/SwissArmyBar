@@ -10,12 +10,8 @@ struct SidebarView: View {
     var body: some View {
         VStack(alignment: isCollapsed ? .center : .leading, spacing: 16) {
             if isCollapsed {
-                HStack {
-                    Spacer()
-                    LogoBadge(palette: palette, size: 34)
-                    Spacer()
-                }
-                .frame(maxWidth: .infinity)
+                LogoBadge(palette: palette, size: 36)
+                    .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 10) {
@@ -62,8 +58,10 @@ struct SidebarView: View {
                 }
             }
         }
-        .padding(isCollapsed ? 14 : 18)
-        .frame(width: isCollapsed ? 72 : 250)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .padding(.vertical, 16)
+        .padding(.horizontal, isCollapsed ? 10 : 16)
+        .frame(width: isCollapsed ? 80 : 252)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(palette.panelFill.opacity(0.75))
@@ -87,7 +85,7 @@ private struct LogoBadge: View {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(palette.panelStroke.opacity(0.7), lineWidth: 1)
                 )
-            Image(systemName: "wrench.and.screwdriver.fill")
+            Image(systemName: "terminal.fill")
                 .font(.system(size: size * 0.5, weight: .semibold))
                 .foregroundStyle(palette.accent)
         }
@@ -138,23 +136,19 @@ private struct SidebarRow: View {
     var body: some View {
         Button(action: action) {
             if isCollapsed {
-                HStack {
-                    Spacer()
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(isSelected ? palette.accent.opacity(0.12) : (isHovering ? palette.panelFill.opacity(0.6) : Color.clear))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .stroke(isSelected ? palette.accent : Color.clear, lineWidth: 1)
-                            )
-                        Image(systemName: tool.iconName)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(isSelected ? palette.accent : palette.textSecondary)
-                    }
-                    .frame(width: 40, height: 40)
-                    Spacer()
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isSelected ? palette.accent.opacity(0.12) : (isHovering ? palette.panelFill.opacity(0.6) : Color.clear))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(isSelected ? palette.accent : Color.clear, lineWidth: 1)
+                        )
+                    Image(systemName: tool.iconName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(isSelected ? palette.accent : palette.textSecondary)
                 }
-                .frame(maxWidth: .infinity)
+                .frame(width: 42, height: 42)
+                .frame(maxWidth: .infinity, alignment: .center)
             } else {
                 HStack(spacing: 10) {
                     Rectangle()

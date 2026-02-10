@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var selectedTool: Tool = .clipboard
     @State private var isSidebarCollapsed = false
+    @State private var isSidebarExpandedInCompact = false
     @State private var isInfoPresented = false
     @StateObject private var themeStore = ThemeStore(presets: ThemeCatalog.presets)
 
@@ -13,6 +14,13 @@ struct ContentView: View {
         ClipboardItem(text: "config.json updated output path", source: "Xcode", timestamp: "9m ago"),
         ClipboardItem(text: "Focus block at 2pm", source: "Calendar", timestamp: "12m ago"),
         ClipboardItem(text: "Signed release build", source: "Terminal", timestamp: "18m ago")
+    ]
+    @State private var blockedClipboardApps: [ClipboardApp] = [
+        ClipboardApp(name: "1Password", bundleId: "com.1password.1password", isBlocked: true),
+        ClipboardApp(name: "Messages", bundleId: "com.apple.MobileSMS", isBlocked: false),
+        ClipboardApp(name: "Notes", bundleId: "com.apple.Notes", isBlocked: false),
+        ClipboardApp(name: "Safari", bundleId: "com.apple.Safari", isBlocked: false),
+        ClipboardApp(name: "Terminal", bundleId: "com.apple.Terminal", isBlocked: false)
     ]
 
     @State private var timerDurationMinutes: Double = 25
@@ -39,38 +47,71 @@ struct ContentView: View {
         )
         let palette = Palette(isDark: currentIsDark, customColors: customColors)
 
-        ZStack {
-            LinearGradient(
-                colors: [palette.backgroundTop, palette.backgroundBottom],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+        GeometryReader { proxy in
+            let isCompact = proxy.size.width < 980
+            let effectiveSidebarCollapsed = isCompact ? !isSidebarExpandedInCompact : isSidebarCollapsed
 
-            TerminalGridBackground(lineColor: palette.divider, glow: palette.glow)
+            ZStack {
+                LinearGradient(
+                    colors: [palette.backgroundTop, palette.backgroundBottom],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
                 .ignoresSafeArea()
 
-            HStack(spacing: 20) {
-                SidebarView(
-                    selectedTool: $selectedTool,
-                    isCollapsed: isSidebarCollapsed,
-                    palette: palette
-                )
-                .animation(.easeInOut(duration: 0.2), value: isSidebarCollapsed)
-                detailArea(palette: palette)
+                TerminalGridBackground(lineColor: palette.divider, glow: palette.glow)
+                    .ignoresSafeArea()
+
+                HStack(spacing: isCompact ? 14 : 20) {
+                    SidebarView(
+                        selectedTool: $selectedTool,
+                        isCollapsed: effectiveSidebarCollapsed,
+                        palette: palette
+                    )
+                    .animation(.easeInOut(duration: 0.2), value: effectiveSidebarCollapsed)
+                    detailArea(palette: palette, isCompact: isCompact, isSidebarCollapsed: effectiveSidebarCollapsed)
+                }
+                .padding(isCompact ? 16 : 24)
             }
-            .padding(24)
+            .preferredColorScheme(currentIsDark ? .dark : .light)
         }
-        .preferredColorScheme(currentIsDark ? .dark : .light)
-        .frame(minWidth: 920, minHeight: 600)
+        .frame(minWidth: 960, minHeight: 620)
     }
 
-    private func detailArea(palette: Palette) -> some View {
-        VStack(alignment: .leading, spacing: 20) {
+    private func detailArea(palette: Palette, isCompact: Bool, isSidebarCollapsed: Bool) -> some View {
+        Group {
+            if isCompact {
+                ScrollView {
+                    detailContent(palette: palette, isCompact: isCompact, isSidebarCollapsed: isSidebarCollapsed)
+                }
+            } else {
+                detailContent(palette: palette, isCompact: isCompact, isSidebarCollapsed: isSidebarCollapsed)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(palette.panelFill)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(palette.panelStroke, lineWidth: 1)
+                )
+        )
+        .sheet(isPresented: $isInfoPresented) {
+            InfoSheetView(palette: palette)
+        }
+    }
+
+    private func detailContent(palette: Palette, isCompact: Bool, isSidebarCollapsed: Bool) -> some View {
+        VStack(alignment: .leading, spacing: isCompact ? 16 : 20) {
             HStack(alignment: .center, spacing: 12) {
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        isSidebarCollapsed.toggle()
+                        if isCompact {
+                            isSidebarExpandedInCompact.toggle()
+                        } else {
+                            self.isSidebarCollapsed.toggle()
+                        }
                     }
                 } label: {
                     Image(systemName: isSidebarCollapsed ? "sidebar.trailing" : "sidebar.leading")
@@ -117,6 +158,8 @@ struct ContentView: View {
                 ClipboardView(
                     clipboardItems: $clipboardItems,
                     clipboardHistoryLimit: $clipboardHistoryLimit,
+                    blockedApps: $blockedClipboardApps,
+                    isCompact: isCompact,
                     palette: palette
                 )
             case .focusTimer:
@@ -132,6 +175,7 @@ struct ContentView: View {
                     detectedInputType: $detectedInputType,
                     selectedOutputType: $selectedOutputType,
                     supportedOutputTypes: supportedOutputTypes,
+                    isCompact: isCompact,
                     palette: palette
                 )
             case .settings:
@@ -141,21 +185,11 @@ struct ContentView: View {
                 )
             }
 
-            Spacer()
+            if !isCompact {
+                Spacer()
+            }
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(palette.panelFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(palette.panelStroke, lineWidth: 1)
-                )
-        )
-        .sheet(isPresented: $isInfoPresented) {
-            InfoSheetView(palette: palette)
-        }
+        .padding(isCompact ? 18 : 24)
     }
 }
 
