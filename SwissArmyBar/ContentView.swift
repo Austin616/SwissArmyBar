@@ -1,95 +1,163 @@
-//
-//  ContentView.swift
-//  SwissArmyBar
-//
-//  Created by Austin Tran on 2/10/26.
-//
-
 import SwiftUI
 
 struct ContentView: View {
-    enum Tool: String, CaseIterable, Identifiable {
-        case clipboard = "Clipboard"
-        case focusTimer = "Focus Timer"
-        case fileConverter = "File Converter"
-
-        var id: String { rawValue }
-
-        var iconName: String {
-            switch self {
-            case .clipboard:
-                return "doc.on.clipboard"
-            case .focusTimer:
-                return "timer"
-            case .fileConverter:
-                return "square.and.arrow.down"
-            }
-        }
-
-        var subtitle: String {
-            switch self {
-            case .clipboard:
-                return "Capture and reuse recent text"
-            case .focusTimer:
-                return "Stay on task with a simple timer"
-            case .fileConverter:
-                return "Drop .png files to convert"
-            }
-        }
-    }
-
-    struct Palette {
-        let backgroundTop: Color
-        let backgroundBottom: Color
-        let panelFill: Color
-        let panelStroke: Color
-        let cardFill: Color
-        let textPrimary: Color
-        let textSecondary: Color
-        let accent: Color
-        let divider: Color
-        let successFill: Color
-
-        init(isDark: Bool) {
-            if isDark {
-                backgroundTop = Color(red: 0.09, green: 0.10, blue: 0.14)
-                backgroundBottom = Color(red: 0.12, green: 0.14, blue: 0.20)
-                panelFill = Color(red: 0.13, green: 0.15, blue: 0.21)
-                panelStroke = Color.white.opacity(0.08)
-                cardFill = Color(red: 0.17, green: 0.19, blue: 0.25)
-                textPrimary = Color.white.opacity(0.92)
-                textSecondary = Color.white.opacity(0.62)
-                accent = Color(red: 0.38, green: 0.69, blue: 0.98)
-                divider = Color.white.opacity(0.08)
-                successFill = Color(red: 0.18, green: 0.28, blue: 0.24)
-            } else {
-                backgroundTop = Color(red: 0.97, green: 0.97, blue: 0.98)
-                backgroundBottom = Color(red: 0.92, green: 0.94, blue: 0.97)
-                panelFill = Color.white.opacity(0.85)
-                panelStroke = Color.black.opacity(0.06)
-                cardFill = Color.white
-                textPrimary = Color.black.opacity(0.86)
-                textSecondary = Color.black.opacity(0.50)
-                accent = Color(red: 0.12, green: 0.52, blue: 0.90)
-                divider = Color.black.opacity(0.06)
-                successFill = Color(red: 0.88, green: 0.96, blue: 0.92)
-            }
-        }
-    }
-
     @State private var selectedTool: Tool = .clipboard
-    @State private var isDarkModeEnabled = false
 
-    private let sampleSnippets = [
-        "Client brief: refresh onboarding flow and email copy.",
-        "https://design.example.com/brand/kit",
-        "Color palette: #0B132B, #1C2541, #5BC0BE",
-        "TODO: ship MVP build by Friday.",
-        "Meeting notes: keep converter output in place."
+    @State private var selectedThemeIndex = 0
+    @State private var isCustomTheme = false
+    @State private var customThemeIsDark = true
+    @State private var backgroundTopHSV = HSVColor.fromRGB(0.02, 0.03, 0.05)
+    @State private var backgroundBottomHSV = HSVColor.fromRGB(0.05, 0.07, 0.10)
+    @State private var panelFillHSV = HSVColor.fromRGB(0.05, 0.07, 0.10)
+    @State private var cardFillHSV = HSVColor.fromRGB(0.07, 0.09, 0.13)
+    @State private var accentHSV = HSVColor.fromRGB(0.20, 0.94, 0.52)
+    @State private var textPrimaryHSV = HSVColor.fromRGB(0.90, 0.96, 0.93)
+    @State private var textSecondaryHSV = HSVColor.fromRGB(0.54, 0.63, 0.60)
+
+    @State private var clipboardHistoryLimit = 8
+    @State private var clipboardItems: [ClipboardItem] = [
+        ClipboardItem(text: "Ship MVP build by Friday", source: "Notes", timestamp: "2m ago"),
+        ClipboardItem(text: "https://docs.swissarmybar.dev/cli", source: "Safari", timestamp: "6m ago"),
+        ClipboardItem(text: "config.json updated output path", source: "Xcode", timestamp: "9m ago"),
+        ClipboardItem(text: "Focus block at 2pm", source: "Calendar", timestamp: "12m ago"),
+        ClipboardItem(text: "Signed release build", source: "Terminal", timestamp: "18m ago")
+    ]
+
+    @State private var timerDurationMinutes: Double = 25
+    @State private var timerRemainingSeconds = 25 * 60
+    @State private var autoDNDEnabled = true
+    @State private var playEndSound = true
+
+    @State private var detectedInputType = "PNG"
+    @State private var selectedOutputType = "JPG"
+    @State private var useSuggestedOutput = true
+    private let supportedOutputTypes = ["JPG", "PNG", "HEIC", "WEBP"]
+
+    private let themePresets: [ThemePreset] = [
+        ThemePreset(
+            name: "Terminal Green",
+            isDark: true,
+            backgroundTop: HSVColor.fromRGB(0.02, 0.03, 0.05),
+            backgroundBottom: HSVColor.fromRGB(0.05, 0.07, 0.10),
+            panelFill: HSVColor.fromRGB(0.05, 0.07, 0.10),
+            cardFill: HSVColor.fromRGB(0.07, 0.09, 0.13),
+            accent: HSVColor.fromRGB(0.20, 0.94, 0.52),
+            textPrimary: HSVColor.fromRGB(0.90, 0.96, 0.93),
+            textSecondary: HSVColor.fromRGB(0.54, 0.63, 0.60)
+        ),
+        ThemePreset(
+            name: "Nord",
+            isDark: true,
+            backgroundTop: HSVColor.fromRGB(0.10, 0.12, 0.16),
+            backgroundBottom: HSVColor.fromRGB(0.14, 0.17, 0.22),
+            panelFill: HSVColor.fromRGB(0.12, 0.15, 0.20),
+            cardFill: HSVColor.fromRGB(0.16, 0.19, 0.25),
+            accent: HSVColor.fromRGB(0.53, 0.75, 0.83),
+            textPrimary: HSVColor.fromRGB(0.90, 0.92, 0.94),
+            textSecondary: HSVColor.fromRGB(0.62, 0.67, 0.72)
+        ),
+        ThemePreset(
+            name: "Amber CRT",
+            isDark: true,
+            backgroundTop: HSVColor.fromRGB(0.07, 0.06, 0.03),
+            backgroundBottom: HSVColor.fromRGB(0.10, 0.09, 0.05),
+            panelFill: HSVColor.fromRGB(0.10, 0.09, 0.05),
+            cardFill: HSVColor.fromRGB(0.13, 0.12, 0.07),
+            accent: HSVColor.fromRGB(0.98, 0.74, 0.18),
+            textPrimary: HSVColor.fromRGB(0.96, 0.93, 0.85),
+            textSecondary: HSVColor.fromRGB(0.70, 0.62, 0.45)
+        ),
+        ThemePreset(
+            name: "Violet Neon",
+            isDark: true,
+            backgroundTop: HSVColor.fromRGB(0.05, 0.04, 0.08),
+            backgroundBottom: HSVColor.fromRGB(0.08, 0.06, 0.12),
+            panelFill: HSVColor.fromRGB(0.08, 0.06, 0.12),
+            cardFill: HSVColor.fromRGB(0.11, 0.09, 0.16),
+            accent: HSVColor.fromRGB(0.62, 0.46, 0.96),
+            textPrimary: HSVColor.fromRGB(0.92, 0.90, 0.96),
+            textSecondary: HSVColor.fromRGB(0.62, 0.58, 0.72)
+        ),
+        ThemePreset(
+            name: "Cobalt",
+            isDark: true,
+            backgroundTop: HSVColor.fromRGB(0.03, 0.05, 0.09),
+            backgroundBottom: HSVColor.fromRGB(0.05, 0.08, 0.13),
+            panelFill: HSVColor.fromRGB(0.05, 0.08, 0.13),
+            cardFill: HSVColor.fromRGB(0.08, 0.11, 0.17),
+            accent: HSVColor.fromRGB(0.29, 0.69, 0.98),
+            textPrimary: HSVColor.fromRGB(0.90, 0.94, 0.98),
+            textSecondary: HSVColor.fromRGB(0.58, 0.62, 0.70)
+        ),
+        ThemePreset(
+            name: "Paper",
+            isDark: false,
+            backgroundTop: HSVColor.fromRGB(0.98, 0.97, 0.95),
+            backgroundBottom: HSVColor.fromRGB(0.94, 0.92, 0.89),
+            panelFill: HSVColor.fromRGB(0.97, 0.96, 0.94),
+            cardFill: HSVColor.fromRGB(1.00, 0.99, 0.97),
+            accent: HSVColor.fromRGB(0.75, 0.45, 0.20),
+            textPrimary: HSVColor.fromRGB(0.16, 0.15, 0.14),
+            textSecondary: HSVColor.fromRGB(0.36, 0.34, 0.32)
+        ),
+        ThemePreset(
+            name: "Nord Light",
+            isDark: false,
+            backgroundTop: HSVColor.fromRGB(0.93, 0.95, 0.98),
+            backgroundBottom: HSVColor.fromRGB(0.88, 0.91, 0.96),
+            panelFill: HSVColor.fromRGB(0.92, 0.94, 0.98),
+            cardFill: HSVColor.fromRGB(0.97, 0.98, 1.00),
+            accent: HSVColor.fromRGB(0.25, 0.55, 0.86),
+            textPrimary: HSVColor.fromRGB(0.16, 0.20, 0.26),
+            textSecondary: HSVColor.fromRGB(0.36, 0.42, 0.50)
+        ),
+        ThemePreset(
+            name: "Rose Dawn",
+            isDark: false,
+            backgroundTop: HSVColor.fromRGB(0.99, 0.96, 0.97),
+            backgroundBottom: HSVColor.fromRGB(0.96, 0.92, 0.94),
+            panelFill: HSVColor.fromRGB(0.98, 0.95, 0.96),
+            cardFill: HSVColor.fromRGB(1.00, 0.98, 0.99),
+            accent: HSVColor.fromRGB(0.88, 0.40, 0.52),
+            textPrimary: HSVColor.fromRGB(0.22, 0.18, 0.20),
+            textSecondary: HSVColor.fromRGB(0.44, 0.36, 0.40)
+        ),
+        ThemePreset(
+            name: "Mint",
+            isDark: false,
+            backgroundTop: HSVColor.fromRGB(0.95, 0.99, 0.97),
+            backgroundBottom: HSVColor.fromRGB(0.90, 0.96, 0.93),
+            panelFill: HSVColor.fromRGB(0.94, 0.98, 0.96),
+            cardFill: HSVColor.fromRGB(0.99, 1.00, 0.99),
+            accent: HSVColor.fromRGB(0.20, 0.62, 0.45),
+            textPrimary: HSVColor.fromRGB(0.16, 0.20, 0.18),
+            textSecondary: HSVColor.fromRGB(0.34, 0.40, 0.36)
+        ),
+        ThemePreset(
+            name: "Sunrise",
+            isDark: false,
+            backgroundTop: HSVColor.fromRGB(0.99, 0.97, 0.92),
+            backgroundBottom: HSVColor.fromRGB(0.96, 0.93, 0.86),
+            panelFill: HSVColor.fromRGB(0.98, 0.95, 0.90),
+            cardFill: HSVColor.fromRGB(1.00, 0.98, 0.94),
+            accent: HSVColor.fromRGB(0.90, 0.58, 0.18),
+            textPrimary: HSVColor.fromRGB(0.20, 0.18, 0.16),
+            textSecondary: HSVColor.fromRGB(0.44, 0.38, 0.34)
+        )
     ]
 
     var body: some View {
-        let palette = Palette(isDark: isDarkModeEnabled)
+        let currentIsDark = isCustomTheme ? customThemeIsDark : themePresets[selectedThemeIndex].isDark
+        let customColors = CustomColors(
+            backgroundTop: backgroundTopHSV.color,
+            backgroundBottom: backgroundBottomHSV.color,
+            panelFill: panelFillHSV.color,
+            cardFill: cardFillHSV.color,
+            accent: accentHSV.color,
+            textPrimary: textPrimaryHSV.color,
+            textSecondary: textSecondaryHSV.color
+        )
+        let palette = Palette(isDark: currentIsDark, customColors: customColors)
 
         ZStack {
             LinearGradient(
@@ -99,98 +167,27 @@ struct ContentView: View {
             )
             .ignoresSafeArea()
 
+            TerminalGridBackground(lineColor: palette.divider, glow: palette.glow)
+                .ignoresSafeArea()
+
             HStack(spacing: 20) {
-                sidebar(palette: palette)
+                SidebarView(selectedTool: $selectedTool, palette: palette)
                 detailArea(palette: palette)
             }
             .padding(24)
         }
-        .preferredColorScheme(isDarkModeEnabled ? .dark : .light)
+        .preferredColorScheme(currentIsDark ? .dark : .light)
         .frame(minWidth: 920, minHeight: 600)
-    }
-
-    private func sidebar(palette: Palette) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Swiss Army Bar")
-                    .font(.custom("Avenir Next", size: 24).weight(.semibold))
-                    .foregroundStyle(palette.textPrimary)
-                Text("All-in-one utility hub")
-                    .font(.custom("Avenir Next", size: 14))
-                    .foregroundStyle(palette.textSecondary)
-            }
-
-            Divider()
-                .overlay(palette.divider)
-
-            VStack(spacing: 10) {
-                ForEach(Tool.allCases) { tool in
-                    Button {
-                        selectedTool = tool
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: tool.iconName)
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(selectedTool == tool ? palette.accent : palette.textSecondary)
-                                .frame(width: 24)
-
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(tool.rawValue)
-                                    .font(.custom("Avenir Next", size: 15).weight(.semibold))
-                                    .foregroundStyle(palette.textPrimary)
-                                Text(tool.subtitle)
-                                    .font(.custom("Avenir Next", size: 12))
-                                    .foregroundStyle(palette.textSecondary)
-                            }
-                            Spacer()
-                        }
-                        .padding(12)
-                        .contentShape(Rectangle())
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(selectedTool == tool ? palette.accent.opacity(0.14) : Color.clear)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            Spacer()
-
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Settings")
-                    .font(.custom("Avenir Next", size: 13).weight(.semibold))
-                    .foregroundStyle(palette.textSecondary)
-
-                Toggle(isOn: $isDarkModeEnabled) {
-                    Text("Dark Mode")
-                        .font(.custom("Avenir Next", size: 14))
-                        .foregroundStyle(palette.textPrimary)
-                }
-                .toggleStyle(.switch)
-                .tint(palette.accent)
-            }
-        }
-        .padding(20)
-        .frame(width: 280)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(palette.panelFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(palette.panelStroke, lineWidth: 1)
-                )
-        )
     }
 
     private func detailArea(palette: Palette) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(selectedTool.rawValue)
-                    .font(.custom("Avenir Next", size: 28).weight(.semibold))
+                    .font(.system(size: 24, weight: .semibold, design: .monospaced))
                     .foregroundStyle(palette.textPrimary)
                 Text(selectedTool.subtitle)
-                    .font(.custom("Avenir Next", size: 14))
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
                     .foregroundStyle(palette.textSecondary)
             }
 
@@ -199,11 +196,42 @@ struct ContentView: View {
 
             switch selectedTool {
             case .clipboard:
-                clipboardView(palette: palette)
+                ClipboardView(
+                    clipboardItems: $clipboardItems,
+                    clipboardHistoryLimit: $clipboardHistoryLimit,
+                    palette: palette
+                )
             case .focusTimer:
-                focusTimerView(palette: palette)
+                FocusTimerView(
+                    timerDurationMinutes: $timerDurationMinutes,
+                    timerRemainingSeconds: $timerRemainingSeconds,
+                    autoDNDEnabled: $autoDNDEnabled,
+                    playEndSound: $playEndSound,
+                    palette: palette
+                )
             case .fileConverter:
-                fileConverterView(palette: palette)
+                FileConverterView(
+                    detectedInputType: $detectedInputType,
+                    selectedOutputType: $selectedOutputType,
+                    useSuggestedOutput: $useSuggestedOutput,
+                    supportedOutputTypes: supportedOutputTypes,
+                    palette: palette
+                )
+            case .settings:
+                SettingsView(
+                    isCustomTheme: $isCustomTheme,
+                    selectedThemeIndex: $selectedThemeIndex,
+                    customThemeIsDark: $customThemeIsDark,
+                    backgroundTopHSV: $backgroundTopHSV,
+                    backgroundBottomHSV: $backgroundBottomHSV,
+                    panelFillHSV: $panelFillHSV,
+                    cardFillHSV: $cardFillHSV,
+                    accentHSV: $accentHSV,
+                    textPrimaryHSV: $textPrimaryHSV,
+                    textSecondaryHSV: $textSecondaryHSV,
+                    themePresets: themePresets,
+                    palette: palette
+                )
             }
 
             Spacer()
@@ -211,127 +239,13 @@ struct ContentView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(palette.panelFill)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .stroke(palette.panelStroke, lineWidth: 1)
                 )
         )
-    }
-
-    private func clipboardView(palette: Palette) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Last 5 Text Snippets")
-                .font(.custom("Avenir Next", size: 16).weight(.semibold))
-                .foregroundStyle(palette.textPrimary)
-
-            VStack(spacing: 12) {
-                ForEach(sampleSnippets, id: \.self) { snippet in
-                    Button {
-                        // UI only for MVP
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "doc.on.doc")
-                                .foregroundStyle(palette.accent)
-                            Text(snippet)
-                                .font(.custom("Avenir Next", size: 14))
-                                .foregroundStyle(palette.textPrimary)
-                                .lineLimit(1)
-                            Spacer()
-                        }
-                        .padding(12)
-                        .contentShape(Rectangle())
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(palette.cardFill)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .stroke(palette.panelStroke, lineWidth: 1)
-                                )
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-
-            Text("Click a snippet to re-copy it to your clipboard.")
-                .font(.custom("Avenir Next", size: 13))
-                .foregroundStyle(palette.textSecondary)
-        }
-    }
-
-    private func focusTimerView(palette: Palette) -> some View {
-        VStack(alignment: .leading, spacing: 22) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Time Remaining")
-                    .font(.custom("Avenir Next", size: 16).weight(.semibold))
-                    .foregroundStyle(palette.textSecondary)
-                Text("25:00")
-                    .font(.custom("Avenir Next", size: 56).weight(.semibold))
-                    .foregroundStyle(palette.textPrimary)
-            }
-
-            HStack(spacing: 12) {
-                Button("Start") { }
-                    .buttonStyle(.borderedProminent)
-                    .tint(palette.accent)
-                Button("Stop") { }
-                    .buttonStyle(.bordered)
-                Button("Reset") { }
-                    .buttonStyle(.bordered)
-            }
-
-            Text("Static 25-minute countdown for the MVP.")
-                .font(.custom("Avenir Next", size: 13))
-                .foregroundStyle(palette.textSecondary)
-        }
-    }
-
-    private func fileConverterView(palette: Palette) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Drop Zone")
-                .font(.custom("Avenir Next", size: 16).weight(.semibold))
-                .foregroundStyle(palette.textPrimary)
-
-            ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [6, 5]))
-                    .foregroundStyle(palette.textSecondary.opacity(0.5))
-                    .background(
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(palette.cardFill)
-                    )
-
-                VStack(spacing: 10) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 28, weight: .semibold))
-                        .foregroundStyle(palette.accent)
-                    Text("Drop .png files here to convert to .jpg")
-                        .font(.custom("Avenir Next", size: 14))
-                        .foregroundStyle(palette.textSecondary)
-                }
-            }
-            .frame(height: 200)
-
-            HStack(spacing: 8) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Color.green)
-                Text("Last conversion: Success")
-                    .font(.custom("Avenir Next", size: 13).weight(.semibold))
-                    .foregroundStyle(palette.textPrimary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(palette.successFill)
-            )
-
-            Text("Converts .png to .jpg and keeps the original file intact.")
-                .font(.custom("Avenir Next", size: 13))
-                .foregroundStyle(palette.textSecondary)
-        }
     }
 }
 
