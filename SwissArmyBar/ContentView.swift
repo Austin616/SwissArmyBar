@@ -6,8 +6,9 @@ struct ContentView: View {
     @State private var isSidebarExpandedInCompact = false
     @State private var isInfoPresented = false
     @StateObject private var themeStore = ThemeStore(presets: ThemeCatalog.presets)
+    @StateObject private var clipboardSettings = ClipboardSettingsStore()
+    @StateObject private var sidebarSettings = SidebarSettingsStore()
 
-    @State private var clipboardHistoryLimit = 8
     @State private var clipboardItems: [ClipboardItem] = [
         ClipboardItem(text: "Ship MVP build by Friday", source: "Notes", timestamp: "2m ago"),
         ClipboardItem(text: "https://docs.swissarmybar.dev/cli", source: "Safari", timestamp: "6m ago"),
@@ -15,18 +16,12 @@ struct ContentView: View {
         ClipboardItem(text: "Focus block at 2pm", source: "Calendar", timestamp: "12m ago"),
         ClipboardItem(text: "Signed release build", source: "Terminal", timestamp: "18m ago")
     ]
-    @State private var blockedClipboardApps: [ClipboardApp] = [
-        ClipboardApp(name: "1Password", bundleId: "com.1password.1password", isBlocked: true),
-        ClipboardApp(name: "Messages", bundleId: "com.apple.MobileSMS", isBlocked: false),
-        ClipboardApp(name: "Notes", bundleId: "com.apple.Notes", isBlocked: false),
-        ClipboardApp(name: "Safari", bundleId: "com.apple.Safari", isBlocked: false),
-        ClipboardApp(name: "Terminal", bundleId: "com.apple.Terminal", isBlocked: false)
-    ]
+    @State private var installedApps: [InstalledApp] = []
 
-    @State private var timerDurationMinutes: Double = 25
-    @State private var timerRemainingSeconds = 25 * 60
-    @State private var autoDNDEnabled = true
-    @State private var playEndSound = true
+    @AppStorage("timerDurationMinutes") private var timerDurationMinutes: Int = 25
+    @State private var timerRemainingSeconds = 0
+    @AppStorage("timerAutoDNDEnabled") private var autoDNDEnabled = true
+    @AppStorage("timerPlayEndSound") private var playEndSound = true
 
     @State private var detectedInputType = "PNG"
     @State private var selectedOutputType = "JPG"
@@ -65,6 +60,7 @@ struct ContentView: View {
                 HStack(spacing: isCompact ? 14 : 20) {
                     SidebarView(
                         selectedTool: $selectedTool,
+                        settings: sidebarSettings,
                         isCollapsed: effectiveSidebarCollapsed,
                         palette: palette
                     )
@@ -76,6 +72,16 @@ struct ContentView: View {
             .preferredColorScheme(currentIsDark ? .dark : .light)
         }
         .frame(minWidth: 960, minHeight: 620)
+        .task {
+            if timerDurationMinutes < 5 || timerDurationMinutes > 90 {
+                timerDurationMinutes = 25
+            }
+            timerRemainingSeconds = timerDurationMinutes * 60
+            let apps = await Task.detached {
+                InstalledAppProvider.loadInstalledApps()
+            }.value
+            installedApps = apps
+        }
     }
 
     private func detailArea(palette: Palette, isCompact: Bool, isSidebarCollapsed: Bool) -> some View {
@@ -153,43 +159,53 @@ struct ContentView: View {
             Divider()
                 .overlay(palette.divider)
 
-            switch selectedTool {
-            case .clipboard:
-                ClipboardView(
-                    clipboardItems: $clipboardItems,
-                    clipboardHistoryLimit: $clipboardHistoryLimit,
-                    blockedApps: $blockedClipboardApps,
-                    isCompact: isCompact,
-                    palette: palette
-                )
-            case .focusTimer:
-                FocusTimerView(
-                    timerDurationMinutes: $timerDurationMinutes,
-                    timerRemainingSeconds: $timerRemainingSeconds,
-                    autoDNDEnabled: $autoDNDEnabled,
-                    playEndSound: $playEndSound,
-                    palette: palette
-                )
-            case .fileConverter:
-                FileConverterView(
-                    detectedInputType: $detectedInputType,
-                    selectedOutputType: $selectedOutputType,
-                    supportedOutputTypes: supportedOutputTypes,
-                    isCompact: isCompact,
-                    palette: palette
-                )
-            case .settings:
-                SettingsView(
-                    themeStore: themeStore,
-                    palette: palette
-                )
+            ZStack {
+                toolView(palette: palette, isCompact: isCompact)
+                    .id(selectedTool)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
+            .animation(.easeInOut(duration: 0.22), value: selectedTool)
 
             if !isCompact {
                 Spacer()
             }
         }
         .padding(isCompact ? 18 : 24)
+    }
+
+    @ViewBuilder
+    private func toolView(palette: Palette, isCompact: Bool) -> some View {
+        switch selectedTool {
+        case .clipboard:
+            ClipboardView(
+                clipboardItems: $clipboardItems,
+                settings: clipboardSettings,
+                installedApps: installedApps,
+                isCompact: isCompact,
+                palette: palette
+            )
+        case .focusTimer:
+            FocusTimerView(
+                timerDurationMinutes: $timerDurationMinutes,
+                timerRemainingSeconds: $timerRemainingSeconds,
+                autoDNDEnabled: $autoDNDEnabled,
+                playEndSound: $playEndSound,
+                palette: palette
+            )
+        case .fileConverter:
+            FileConverterView(
+                detectedInputType: $detectedInputType,
+                selectedOutputType: $selectedOutputType,
+                supportedOutputTypes: supportedOutputTypes,
+                isCompact: isCompact,
+                palette: palette
+            )
+        case .settings:
+            SettingsView(
+                themeStore: themeStore,
+                palette: palette
+            )
+        }
     }
 }
 

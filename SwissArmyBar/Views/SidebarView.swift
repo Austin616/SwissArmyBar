@@ -1,11 +1,12 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SidebarView: View {
     @Binding var selectedTool: Tool
+    @ObservedObject var settings: SidebarSettingsStore
     let isCollapsed: Bool
     let palette: Palette
-
-    private let favorites: [Tool] = [.clipboard, .focusTimer]
+    @State private var draggingTool: Tool?
 
     var body: some View {
         VStack(alignment: isCollapsed ? .center : .leading, spacing: 16) {
@@ -31,18 +32,28 @@ struct SidebarView: View {
 
             SidebarSection(
                 title: "Favorites",
-                tools: favorites,
+                tools: settings.favorites,
                 selectedTool: $selectedTool,
                 isCollapsed: isCollapsed,
-                palette: palette
+                palette: palette,
+                isFavorite: { settings.isFavorite($0) },
+                onToggleFavorite: { settings.toggleFavorite($0) },
+                draggingTool: $draggingTool
+            ) { dragged, target in
+                settings.moveFavorite(dragged: dragged, over: target)
             )
 
             SidebarSection(
                 title: "Tools",
-                tools: Tool.allCases.filter { !favorites.contains($0) },
+                tools: settings.tools,
                 selectedTool: $selectedTool,
                 isCollapsed: isCollapsed,
-                palette: palette
+                palette: palette,
+                isFavorite: { settings.isFavorite($0) },
+                onToggleFavorite: { settings.toggleFavorite($0) },
+                draggingTool: $draggingTool
+            ) { dragged, target in
+                settings.moveTool(dragged: dragged, over: target)
             )
 
             Spacer(minLength: 12)
@@ -100,6 +111,10 @@ private struct SidebarSection: View {
     @Binding var selectedTool: Tool
     let isCollapsed: Bool
     let palette: Palette
+    let isFavorite: (Tool) -> Bool
+    let onToggleFavorite: (Tool) -> Void
+    @Binding var draggingTool: Tool?
+    let onMove: (Tool, Tool) -> Void
 
     var body: some View {
         VStack(alignment: isCollapsed ? .center : .leading, spacing: 6) {
@@ -116,11 +131,32 @@ private struct SidebarSection: View {
                     isCollapsed: isCollapsed,
                     palette: palette
                 ) {
-                    selectedTool = tool
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        selectedTool = tool
+                    }
                 }
+                .contextMenu {
+                    Button(isFavorite(tool) ? "Remove from Favorites" : "Add to Favorites") {
+                        onToggleFavorite(tool)
+                    }
+                }
+                .onDrag {
+                    draggingTool = tool
+                    return NSItemProvider(object: tool.rawValue as NSString)
+                }
+                .onDrop(
+                    of: [UTType.text],
+                    delegate: SidebarDropDelegate(
+                        item: tool,
+                        tools: tools,
+                        draggingTool: $draggingTool,
+                        onMove: onMove
+                    )
+                )
             }
         }
         .frame(maxWidth: .infinity, alignment: isCollapsed ? .center : .leading)
+        .animation(.easeInOut(duration: 0.18), value: tools)
     }
 }
 
@@ -185,5 +221,28 @@ private struct SidebarRow: View {
         .onHover { isHovering in
             self.isHovering = isHovering
         }
+    }
+}
+
+private struct SidebarDropDelegate: DropDelegate {
+    let item: Tool
+    let tools: [Tool]
+    @Binding var draggingTool: Tool?
+    let onMove: (Tool, Tool) -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard let dragging = draggingTool,
+              dragging != item,
+              tools.contains(dragging) else { return }
+        onMove(dragging, item)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggingTool = nil
+        return true
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
     }
 }

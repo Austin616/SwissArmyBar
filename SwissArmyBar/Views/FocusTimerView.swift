@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct FocusTimerView: View {
-    @Binding var timerDurationMinutes: Double
+    @Binding var timerDurationMinutes: Int
     @Binding var timerRemainingSeconds: Int
     @Binding var autoDNDEnabled: Bool
     @Binding var playEndSound: Bool
@@ -9,7 +9,7 @@ struct FocusTimerView: View {
 
     private var progress: Double {
         timerDurationMinutes > 0
-            ? Double(timerRemainingSeconds) / (timerDurationMinutes * 60)
+            ? Double(timerRemainingSeconds) / Double(timerDurationMinutes * 60)
             : 0
     }
 
@@ -33,7 +33,7 @@ struct FocusTimerView: View {
                     TimerActionButton(title: "Start", style: .primary, palette: palette) { }
                     TimerActionButton(title: "Pause", style: .secondary, palette: palette) { }
                     TimerActionButton(title: "Reset", style: .ghost, palette: palette) {
-                        timerRemainingSeconds = Int(timerDurationMinutes * 60)
+                        timerRemainingSeconds = timerDurationMinutes * 60
                     }
                 }
             }
@@ -50,7 +50,7 @@ struct FocusTimerView: View {
                     NumericInputStepper(
                         value: $timerDurationMinutes,
                         range: 5...90,
-                        step: 5,
+                        step: 1,
                         suffix: "min",
                         palette: palette
                     )

@@ -1,31 +1,48 @@
 import SwiftUI
 
 struct NumericInputStepper: View {
-    @Binding var value: Double
-    let range: ClosedRange<Double>
-    let step: Double
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let step: Int
     let suffix: String
     let palette: Palette
 
-    private var formatter: NumberFormatter {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.maximumFractionDigits = 0
-        formatter.minimum = NSNumber(value: range.lowerBound)
-        formatter.maximum = NSNumber(value: range.upperBound)
-        return formatter
+    @State private var text: String
+
+    init(value: Binding<Int>, range: ClosedRange<Int>, step: Int, suffix: String, palette: Palette) {
+        _value = value
+        self.range = range
+        self.step = step
+        self.suffix = suffix
+        self.palette = palette
+        _text = State(initialValue: "\(value.wrappedValue)")
     }
 
     var body: some View {
         HStack(spacing: 8) {
-            TextField("", value: $value, formatter: formatter)
+            TextField("", text: $text)
                 .frame(width: 48)
                 .multilineTextAlignment(.trailing)
                 .textFieldStyle(.plain)
                 .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .monospacedDigit()
                 .foregroundStyle(palette.textPrimary)
+                .onChange(of: text) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber }
+                    if filtered != newValue {
+                        text = filtered
+                    }
+                    guard let intValue = Int(filtered) else { return }
+                    value = min(max(intValue, range.lowerBound), range.upperBound)
+                }
                 .onChange(of: value) { _, newValue in
-                    value = newValue.clamped(to: range)
+                    text = "\(newValue)"
+                }
+                .onSubmit {
+                    if text.isEmpty {
+                        value = range.lowerBound
+                        text = "\(value)"
+                    }
                 }
 
             Text(suffix)
@@ -57,28 +74,27 @@ private struct ArrowStepper: View {
     let palette: Palette
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 0) {
             Button(action: increment) {
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(palette.textPrimary)
-                    .frame(width: 18, height: 12)
+                    .frame(width: 20, height: 14)
             }
             .buttonStyle(.plain)
-
+            Divider()
+                .overlay(palette.panelStroke.opacity(0.8))
             Button(action: decrement) {
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(palette.textPrimary)
-                    .frame(width: 18, height: 12)
+                    .frame(width: 20, height: 14)
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(palette.panelFill.opacity(0.75))
+                .fill(palette.panelFill.opacity(0.7))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .stroke(palette.panelStroke, lineWidth: 1)

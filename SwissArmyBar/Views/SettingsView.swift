@@ -26,6 +26,7 @@ struct SettingsView: View {
                     ) { preset in
                         themeStore.selectPreset(preset)
                     }
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
 
                     ThemePresetSection(
                         title: "Light Presets",
@@ -35,6 +36,7 @@ struct SettingsView: View {
                     ) { preset in
                         themeStore.selectPreset(preset)
                     }
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
                 }
             }
 
@@ -69,6 +71,7 @@ struct SettingsView: View {
                     InspectorDivider(palette: palette)
                     ColorRow(title: "Card", hsv: $themeStore.cardFillHSV, palette: palette)
                 }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
 
                 HStack(spacing: 12) {
                     ThemedButton(title: "Revert to Preset", style: .secondary, size: .small, palette: palette) {
@@ -82,6 +85,7 @@ struct SettingsView: View {
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.22), value: themeStore.isCustomTheme)
     }
 }
 
@@ -163,7 +167,9 @@ struct ThemeModeToggle: View {
             .frame(width: 200)
             .tint(palette.accent)
             .onChange(of: isCustomTheme) { _, _ in
-                onChange()
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    onChange()
+                }
             }
         }
     }
