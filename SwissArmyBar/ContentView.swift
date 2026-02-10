@@ -6,25 +6,16 @@ struct ContentView: View {
     @State private var isSidebarExpandedInCompact = false
     @State private var isInfoPresented = false
     @StateObject private var themeStore = ThemeStore(presets: ThemeCatalog.presets)
-    @StateObject private var clipboardSettings: ClipboardSettingsStore
-    @StateObject private var clipboardMonitor: ClipboardMonitor
-    @StateObject private var sidebarSettings = SidebarSettingsStore()
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    @EnvironmentObject private var clipboardSettings: ClipboardSettingsStore
+    @EnvironmentObject private var clipboardMonitor: ClipboardMonitor
+    @EnvironmentObject private var sidebarSettings: SidebarSettingsStore
+    @EnvironmentObject private var timerStore: TimerStore
     @State private var installedApps: [InstalledApp] = []
-
-    @AppStorage("timerDurationMinutes") private var timerDurationMinutes: Int = 25
-    @State private var timerRemainingSeconds = 0
-    @AppStorage("timerAutoDNDEnabled") private var autoDNDEnabled = true
-    @AppStorage("timerPlayEndSound") private var playEndSound = true
 
     @State private var detectedInputType = "PNG"
     @State private var selectedOutputType = "JPG"
     private let supportedOutputTypes = ["JPG", "PNG", "HEIC", "WEBP"]
-
-    init() {
-        let settings = ClipboardSettingsStore()
-        _clipboardSettings = StateObject(wrappedValue: settings)
-        _clipboardMonitor = StateObject(wrappedValue: ClipboardMonitor(settings: settings))
-    }
 
     var body: some View {
         let currentIsDark = themeStore.isCustomTheme
@@ -72,10 +63,6 @@ struct ContentView: View {
         }
         .frame(minWidth: 960, minHeight: 620)
         .task {
-            if timerDurationMinutes < 5 || timerDurationMinutes > 90 {
-                timerDurationMinutes = 25
-            }
-            timerRemainingSeconds = timerDurationMinutes * 60
             let apps = await Task.detached {
                 InstalledAppProvider.loadInstalledApps()
             }.value
@@ -108,7 +95,8 @@ struct ContentView: View {
     }
 
     private func detailContent(palette: Palette, isCompact: Bool, isSidebarCollapsed: Bool) -> some View {
-        VStack(alignment: .leading, spacing: isCompact ? 16 : 20) {
+        let typography = AppTypography(settings: appSettings)
+        return VStack(alignment: .leading, spacing: isCompact ? 16 : 20) {
             HStack(alignment: .center, spacing: 12) {
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -133,10 +121,10 @@ struct ContentView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(selectedTool.rawValue)
-                        .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                        .font(typography.font(size: 24, weight: .semibold, design: .monospaced))
                         .foregroundStyle(palette.textPrimary)
                     Text(selectedTool.subtitle)
-                        .font(.system(size: 12, weight: .regular, design: .monospaced))
+                        .font(typography.font(size: 12, weight: .regular, design: .monospaced))
                         .foregroundStyle(palette.textSecondary)
                 }
                 Spacer()
@@ -178,14 +166,11 @@ struct ContentView: View {
                     isCompact: isCompact,
                     palette: palette
                 )
-        case .focusTimer:
-            FocusTimerView(
-                timerDurationMinutes: $timerDurationMinutes,
-                timerRemainingSeconds: $timerRemainingSeconds,
-                autoDNDEnabled: $autoDNDEnabled,
-                playEndSound: $playEndSound,
-                palette: palette
-            )
+            case .focusTimer:
+                FocusTimerView(
+                    timer: timerStore,
+                    palette: palette
+                )
         case .fileConverter:
             FileConverterView(
                 detectedInputType: $detectedInputType,
@@ -204,5 +189,11 @@ struct ContentView: View {
 }
 
 #Preview {
+    let clipboardSettings = ClipboardSettingsStore()
     ContentView()
+        .environmentObject(AppSettingsStore())
+        .environmentObject(clipboardSettings)
+        .environmentObject(ClipboardMonitor(settings: clipboardSettings))
+        .environmentObject(SidebarSettingsStore())
+        .environmentObject(TimerStore())
 }

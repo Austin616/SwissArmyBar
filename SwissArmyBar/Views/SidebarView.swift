@@ -7,6 +7,9 @@ struct SidebarView: View {
     let isCollapsed: Bool
     let palette: Palette
     @State private var draggingTool: Tool?
+    @State private var lastDropTarget: Tool?
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         VStack(alignment: isCollapsed ? .center : .leading, spacing: 16) {
@@ -18,11 +21,11 @@ struct SidebarView: View {
                     HStack(spacing: 10) {
                         LogoBadge(palette: palette, size: 28)
                         Text("SWISSARMYBAR")
-                            .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                            .font(typography.font(size: 16, weight: .semibold, design: .monospaced))
                             .foregroundStyle(palette.textPrimary)
                     }
                     Text("Utility console v0.1")
-                        .font(.system(size: 11, weight: .regular, design: .monospaced))
+                        .font(typography.font(size: 11, weight: .regular, design: .monospaced))
                         .foregroundStyle(palette.textSecondary)
                 }
             }
@@ -39,8 +42,11 @@ struct SidebarView: View {
                 isFavorite: { settings.isFavorite($0) },
                 onToggleFavorite: { settings.toggleFavorite($0) },
                 draggingTool: $draggingTool,
+                lastDropTarget: $lastDropTarget,
                 onMove: { dragged, target in
-                    settings.moveFavorite(dragged: dragged, over: target)
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        settings.moveFavorite(dragged: dragged, over: target)
+                    }
                 }
             )
 
@@ -53,8 +59,11 @@ struct SidebarView: View {
                 isFavorite: { settings.isFavorite($0) },
                 onToggleFavorite: { settings.toggleFavorite($0) },
                 draggingTool: $draggingTool,
+                lastDropTarget: $lastDropTarget,
                 onMove: { dragged, target in
-                    settings.moveTool(dragged: dragged, over: target)
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        settings.moveTool(dragged: dragged, over: target)
+                    }
                 }
             )
 
@@ -63,10 +72,10 @@ struct SidebarView: View {
             if !isCollapsed {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Status")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .font(typography.font(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundStyle(palette.textSecondary)
                     Text("All systems nominal.")
-                        .font(.system(size: 11, weight: .regular, design: .monospaced))
+                        .font(typography.font(size: 11, weight: .regular, design: .monospaced))
                         .foregroundStyle(palette.textSecondary)
                 }
             }
@@ -116,13 +125,16 @@ private struct SidebarSection: View {
     let isFavorite: (Tool) -> Bool
     let onToggleFavorite: (Tool) -> Void
     @Binding var draggingTool: Tool?
+    @Binding var lastDropTarget: Tool?
     let onMove: (Tool, Tool) -> Void
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         VStack(alignment: isCollapsed ? .center : .leading, spacing: 6) {
             if !isCollapsed {
                 Text(title.uppercased())
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .font(typography.font(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(palette.textSecondary)
                     .padding(.leading, 6)
             }
@@ -150,6 +162,7 @@ private struct SidebarSection: View {
                         item: tool,
                         tools: tools,
                         draggingTool: $draggingTool,
+                        lastDropTarget: $lastDropTarget,
                         onMove: onMove
                     )
                 )
@@ -168,6 +181,8 @@ private struct SidebarRow: View {
     let action: () -> Void
 
     @State private var isHovering = false
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         Button(action: action) {
@@ -199,10 +214,10 @@ private struct SidebarRow: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(tool.rawValue)
-                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                            .font(typography.font(size: 13, weight: .semibold, design: .monospaced))
                             .foregroundStyle(palette.textPrimary)
                         Text(tool.subtitle)
-                            .font(.system(size: 10, weight: .regular, design: .monospaced))
+                            .font(typography.font(size: 10, weight: .regular, design: .monospaced))
                             .foregroundStyle(palette.textSecondary)
                     }
                     Spacer()
@@ -228,18 +243,27 @@ private struct SidebarDropDelegate: DropDelegate {
     let item: Tool
     let tools: [Tool]
     @Binding var draggingTool: Tool?
+    @Binding var lastDropTarget: Tool?
     let onMove: (Tool, Tool) -> Void
 
     func dropEntered(info: DropInfo) {
         guard let dragging = draggingTool,
               dragging != item,
               tools.contains(dragging) else { return }
-        onMove(dragging, item)
+        if lastDropTarget != item {
+            lastDropTarget = item
+            onMove(dragging, item)
+        }
     }
 
     func performDrop(info: DropInfo) -> Bool {
         draggingTool = nil
+        lastDropTarget = nil
         return true
+    }
+
+    func dropExited(info: DropInfo) {
+        lastDropTarget = nil
     }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {

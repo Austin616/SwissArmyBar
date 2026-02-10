@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct ClipboardView: View {
     @ObservedObject var monitor: ClipboardMonitor
@@ -7,6 +8,9 @@ struct ClipboardView: View {
     let isCompact: Bool
     let palette: Palette
     @State private var isExcludedAppsPresented = false
+    @State private var toastMessage: String? = nil
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         Group {
@@ -25,60 +29,84 @@ struct ClipboardView: View {
     }
 
     private var clipboardPrimaryPanel: some View {
-        ConfigCard(title: "Recent Clips", palette: palette) {
-            HStack {
-                Text("Showing last \(settings.historyLimit) items")
-                    .font(.system(size: 11, weight: .regular, design: .rounded))
-                    .foregroundStyle(palette.textSecondary)
-                Spacer()
-                Text("\(min(monitor.items.count, settings.historyLimit)) saved")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(palette.textPrimary)
-            }
-            let visibleItems = Array(monitor.items.prefix(settings.historyLimit))
-            ForEach(visibleItems) { item in
-                VStack(spacing: 8) {
-                    HStack(spacing: 10) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.text)
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundStyle(palette.textPrimary)
-                                .lineLimit(1)
-                            HStack(spacing: 8) {
-                                Text(item.source.uppercased())
-                                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(palette.textSecondary)
-                                Text(item.timestamp)
-                                    .font(.system(size: 10, weight: .regular, design: .rounded))
-                                    .foregroundStyle(palette.textSecondary)
-                            }
-                        }
-                        Spacer()
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                monitor.remove(item)
-                            }
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(palette.textSecondary)
-                                .frame(width: 26, height: 26)
-                                .background(
-                                    Circle()
-                                        .fill(palette.panelFill.opacity(0.7))
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    if item.id != visibleItems.last?.id {
-                        Divider()
-                            .overlay(palette.divider)
-                    }
+        ZStack(alignment: .topTrailing) {
+            ConfigCard(title: "Recent Clips", palette: palette) {
+                HStack {
+                    Text("Showing last \(settings.historyLimit) items")
+                        .font(typography.font(size: 11, weight: .regular, design: .rounded))
+                        .foregroundStyle(palette.textSecondary)
+                    Spacer()
+                    Text("\(min(monitor.items.count, settings.historyLimit)) saved")
+                        .font(typography.font(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
                 }
-                .transition(.opacity.combined(with: .move(edge: .trailing)))
+                let visibleItems = Array(monitor.items.prefix(settings.historyLimit))
+                ForEach(visibleItems) { item in
+                    VStack(spacing: 8) {
+                        HStack(spacing: 10) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.text)
+                                    .font(typography.font(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(palette.textPrimary)
+                                    .lineLimit(1)
+                                HStack(spacing: 8) {
+                                    Text(item.source.uppercased())
+                                        .font(typography.font(size: 9, weight: .semibold, design: .monospaced))
+                                        .foregroundStyle(palette.textSecondary)
+                                    Text(item.timestamp)
+                                        .font(typography.font(size: 10, weight: .regular, design: .rounded))
+                                        .foregroundStyle(palette.textSecondary)
+                                }
+                            }
+                            Spacer()
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    monitor.remove(item)
+                                }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(palette.textSecondary)
+                                    .frame(width: 26, height: 26)
+                                    .background(
+                                        Circle()
+                                            .fill(palette.panelFill.opacity(0.7))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            copyToClipboard(item.text)
+                        }
+                        if item.id != visibleItems.last?.id {
+                            Divider()
+                                .overlay(palette.divider)
+                        }
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: monitor.items)
+
+            if let toastMessage {
+                Text(toastMessage)
+                    .font(typography.font(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(palette.textPrimary)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(palette.panelFill.opacity(0.9))
+                            .overlay(
+                                Capsule().stroke(palette.panelStroke, lineWidth: 1)
+                            )
+                    )
+                    .padding(.top, 6)
+                    .padding(.trailing, 8)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: monitor.items)
     }
 
     private var clipboardSidePanel: some View {
@@ -86,15 +114,15 @@ struct ClipboardView: View {
             ConfigCard(title: "Capture", palette: palette, minHeight: 140) {
                 HStack {
                     Text("Status")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(typography.font(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
                     Spacer()
                     Text("Active")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(typography.font(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
                 }
                 Text("Listening for text snippets only.")
-                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .font(typography.font(size: 11, weight: .regular, design: .rounded))
                     .foregroundStyle(palette.textSecondary)
             }
 
@@ -102,10 +130,10 @@ struct ClipboardView: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("History limit")
-                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .font(typography.font(size: 11, weight: .regular, design: .rounded))
                         .foregroundStyle(palette.textSecondary)
                         Text("Max saved clips")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .font(typography.font(size: 12, weight: .semibold, design: .rounded))
                             .foregroundStyle(palette.textPrimary)
                     }
                     Spacer()
@@ -124,11 +152,11 @@ struct ClipboardView: View {
 
             ConfigCard(title: "Excluded Apps", palette: palette, minHeight: 140) {
                 Text("Exclude clipboard capture from specific apps.")
-                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                    .font(typography.font(size: 11, weight: .regular, design: .rounded))
                     .foregroundStyle(palette.textSecondary)
                 HStack {
                     Text("\(settings.blockedBundleIds.count) apps blocked")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(typography.font(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
                     Spacer()
                     ThemedButton(title: "Manage", style: .secondary, size: .small, palette: palette) {
@@ -159,6 +187,24 @@ struct ClipboardView: View {
             }
         )
     }
+
+    private func copyToClipboard(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+        showToast("Now saved to clipboard")
+    }
+
+    private func showToast(_ message: String) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            toastMessage = message
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                toastMessage = nil
+            }
+        }
+    }
 }
 
 private struct ExcludedAppsSheet: View {
@@ -167,6 +213,8 @@ private struct ExcludedAppsSheet: View {
     let palette: Palette
     @Environment(\.dismiss) private var dismiss
     @State private var search = ""
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         ZStack {
@@ -181,10 +229,10 @@ private struct ExcludedAppsSheet: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Excluded Apps")
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .font(typography.font(size: 18, weight: .semibold, design: .rounded))
                             .foregroundStyle(palette.textPrimary)
                         Text("Choose apps to ignore clipboard activity.")
-                            .font(.system(size: 12, weight: .regular, design: .rounded))
+                            .font(typography.font(size: 12, weight: .regular, design: .rounded))
                             .foregroundStyle(palette.textSecondary)
                     }
                     Spacer()
@@ -208,7 +256,7 @@ private struct ExcludedAppsSheet: View {
                         .foregroundStyle(palette.textSecondary)
                     TextField("Search apps", text: $search)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 12, weight: .regular, design: .rounded))
+                        .font(typography.font(size: 12, weight: .regular, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
                 }
                 .padding(.horizontal, 10)
@@ -237,7 +285,7 @@ private struct ExcludedAppsSheet: View {
                         }
                         if filteredApps.isEmpty {
                             Text("No apps found.")
-                                .font(.system(size: 11, weight: .regular, design: .rounded))
+                                .font(typography.font(size: 11, weight: .regular, design: .rounded))
                                 .foregroundStyle(palette.textSecondary)
                                 .padding(.vertical, 6)
                         }
@@ -287,6 +335,8 @@ private struct ExcludedAppRow: View {
     let isBlocked: Binding<Bool>
     let palette: Palette
     @State private var isHovering = false
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -296,7 +346,7 @@ private struct ExcludedAppRow: View {
                 .frame(width: 18, height: 18)
                 .cornerRadius(4)
             Text(app.name)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(typography.font(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(palette.textPrimary)
             Spacer()
             Toggle("", isOn: isBlocked)

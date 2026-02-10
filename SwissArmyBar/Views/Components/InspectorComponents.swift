@@ -4,11 +4,13 @@ struct InspectorSection<Content: View>: View {
     let title: String
     let palette: Palette
     @ViewBuilder let content: () -> Content
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .font(typography.font(size: 11, weight: .semibold, design: .monospaced))
                 .foregroundStyle(palette.textSecondary)
 
             VStack(alignment: .leading, spacing: 8) {
@@ -41,17 +43,19 @@ struct StatCard: View {
     let value: String
     let subtitle: String
     let palette: Palette
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .font(typography.font(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(palette.textSecondary)
             Text(value)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .font(typography.font(size: 18, weight: .semibold, design: .rounded))
                 .foregroundStyle(palette.textPrimary)
             Text(subtitle)
-                .font(.system(size: 11, weight: .regular, design: .rounded))
+                .font(typography.font(size: 11, weight: .regular, design: .rounded))
                 .foregroundStyle(palette.textSecondary)
         }
         .padding(14)

@@ -3,6 +3,8 @@ import SwiftUI
 struct InfoSheetView: View {
     let palette: Palette
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         ZStack {
@@ -19,7 +21,7 @@ struct InfoSheetView: View {
                         Image(systemName: "questionmark.circle.fill")
                             .foregroundStyle(palette.accent)
                         Text("How to Use Swiss Army Bar")
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .font(typography.font(size: 18, weight: .semibold, design: .rounded))
                             .foregroundStyle(palette.textPrimary)
                     }
                     Spacer()
@@ -90,6 +92,8 @@ private struct HelpRow: View {
     let detail: String
     let palette: Palette
     var trailing: AnyView? = nil
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     init<Content: View>(title: String, detail: String, palette: Palette, trailing: Content) {
         self.title = title
@@ -108,10 +112,10 @@ private struct HelpRow: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(typography.font(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(palette.textPrimary)
                 Text(detail)
-                    .font(.system(size: 12, weight: .regular, design: .rounded))
+                    .font(typography.font(size: 12, weight: .regular, design: .rounded))
                     .foregroundStyle(palette.textSecondary)
             }
             Spacer()
@@ -134,10 +138,12 @@ private struct HelpRow: View {
 private struct Keycap: View {
     let text: String
     let palette: Palette
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+            .font(typography.font(size: 11, weight: .semibold, design: .monospaced))
             .foregroundStyle(palette.textPrimary)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)

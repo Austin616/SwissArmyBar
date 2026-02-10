@@ -13,6 +13,8 @@ struct FileConverterView: View {
     @State private var outputURL: URL?
     @State private var conversionStatus: String?
     @State private var isDropTargeted = false
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     private var suggestedOutputType: String {
         switch detectedInputType {
@@ -53,10 +55,10 @@ struct FileConverterView: View {
                             .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(palette.accent)
                         Text(droppedURL?.lastPathComponent ?? "Drop a compatible file")
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .font(typography.font(size: 13, weight: .semibold, design: .rounded))
                             .foregroundStyle(palette.textPrimary)
                         Text(droppedURL == nil ? "Detects input type automatically" : "Ready to convert")
-                            .font(.system(size: 11, weight: .regular, design: .rounded))
+                            .font(typography.font(size: 11, weight: .regular, design: .rounded))
                             .foregroundStyle(palette.textSecondary)
                         ThemedButton(title: "Choose File", style: .secondary, size: .small, palette: palette) {
                             openFilePicker()
@@ -79,12 +81,12 @@ struct FileConverterView: View {
 
             InspectorSection(title: "Export", palette: palette) {
                 HStack(spacing: 12) {
-                    ThemedButton(title: "Convert", style: .primary, size: .regular, palette: palette) {
+                    ThemedButton(title: "Export", style: .primary, size: .regular, palette: palette) {
                         convertFile()
                     }
-                    ThemedButton(title: "Reveal in Finder", style: .secondary, size: .regular, palette: palette) {
-                        if let outputURL {
-                            NSWorkspace.shared.activateFileViewerSelecting([outputURL])
+                    if outputURL != nil {
+                        ThemedButton(title: "Download", style: .secondary, size: .regular, palette: palette) {
+                            saveExport()
                         }
                     }
                 }
@@ -92,12 +94,34 @@ struct FileConverterView: View {
                     .fill(palette.panelFill.opacity(0.6))
                     .frame(height: 60)
                     .overlay(
-                        HStack(spacing: 10) {
-                            Image(systemName: "hand.draw")
-                                .foregroundStyle(palette.accent)
-                            Text(conversionStatus ?? "Drop a file to enable conversion.")
-                                .font(.system(size: 12, weight: .regular, design: .rounded))
-                                .foregroundStyle(palette.textSecondary)
+                        Group {
+                            if let outputURL {
+                                HStack(spacing: 10) {
+                                    Image(nsImage: NSWorkspace.shared.icon(forFile: outputURL.path))
+                                        .resizable()
+                                        .frame(width: 20, height: 20)
+                                        .cornerRadius(4)
+                                    Text("Drag to save")
+                                        .font(typography.font(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(palette.textPrimary)
+                                    Spacer()
+                                    Text(outputURL.lastPathComponent)
+                                        .font(typography.font(size: 11, weight: .regular, design: .rounded))
+                                        .foregroundStyle(palette.textSecondary)
+                                }
+                                .padding(.horizontal, 12)
+                                .onDrag {
+                                    NSItemProvider(contentsOf: outputURL) ?? NSItemProvider()
+                                }
+                            } else {
+                                HStack(spacing: 10) {
+                                    Image(systemName: "hand.draw")
+                                        .foregroundStyle(palette.accent)
+                                    Text(conversionStatus ?? "Export to enable download or drag.")
+                                        .font(typography.font(size: 12, weight: .regular, design: .rounded))
+                                        .foregroundStyle(palette.textSecondary)
+                                }
+                            }
                         }
                     )
             }
@@ -126,19 +150,19 @@ struct FileConverterView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Detected type")
-                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .font(typography.font(size: 11, weight: .regular, design: .rounded))
                         .foregroundStyle(palette.textSecondary)
                     Text(detectedInputType)
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .font(typography.font(size: 18, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text("Suggested")
-                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .font(typography.font(size: 11, weight: .regular, design: .rounded))
                         .foregroundStyle(palette.textSecondary)
                     Text(suggestedOutputType)
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .font(typography.font(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
                 }
             }
@@ -150,10 +174,10 @@ struct FileConverterView: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Target format")
-                        .font(.system(size: 11, weight: .regular, design: .rounded))
+                        .font(typography.font(size: 11, weight: .regular, design: .rounded))
                         .foregroundStyle(palette.textSecondary)
                     Text(selectedOutputType)
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .font(typography.font(size: 18, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
                 }
                 Spacer()
@@ -211,6 +235,24 @@ struct FileConverterView: View {
         }
     }
 
+    private func saveExport() {
+        guard let outputURL else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = outputURL.lastPathComponent
+        panel.begin { response in
+            guard response == .OK, let destination = panel.url else { return }
+            do {
+                if FileManager.default.fileExists(atPath: destination.path) {
+                    try FileManager.default.removeItem(at: destination)
+                }
+                try FileManager.default.copyItem(at: outputURL, to: destination)
+                conversionStatus = "Saved to \(destination.lastPathComponent)."
+            } catch {
+                conversionStatus = "Save failed."
+            }
+        }
+    }
+
     private func openFilePicker() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
@@ -265,16 +307,18 @@ private struct OutputTypeChip: View {
     let isSuggested: Bool
     let palette: Palette
     let action: () -> Void
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Text(title)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(typography.font(size: 11, weight: .semibold, design: .rounded))
                     .lineLimit(1)
                 if isSuggested {
                     Text("Suggested")
-                        .font(.system(size: 8, weight: .semibold, design: .rounded))
+                        .font(typography.font(size: 8, weight: .semibold, design: .rounded))
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(

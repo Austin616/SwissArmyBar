@@ -5,11 +5,13 @@ struct ConfigCard<Content: View>: View {
     let palette: Palette
     var minHeight: CGFloat? = nil
     @ViewBuilder let content: () -> Content
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .font(typography.font(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(palette.textSecondary)
             content()
         }

@@ -2,17 +2,17 @@ import SwiftUI
 import Combine
 
 struct FocusTimerView: View {
-    @Binding var timerDurationMinutes: Int
-    @Binding var timerRemainingSeconds: Int
-    @Binding var autoDNDEnabled: Bool
-    @Binding var playEndSound: Bool
+    @ObservedObject var timer: TimerStore
     let palette: Palette
-    @State private var isRunning = false
-    private let tick = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
+
+    private var unitLabel: String { appSettings.timeUnitStyle.label }
+    private var chipLabel: String { appSettings.timeUnitStyle.label }
 
     private var progress: Double {
-        timerDurationMinutes > 0
-            ? Double(timerRemainingSeconds) / Double(timerDurationMinutes * 60)
+        timer.durationMinutes > 0
+            ? Double(timer.remainingSeconds) / Double(timer.durationMinutes * 60)
             : 0
     }
 
@@ -24,27 +24,28 @@ struct FocusTimerView: View {
                         .frame(width: 220, height: 220)
                     VStack(spacing: 6) {
                         Text("TIME REMAINING")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .font(typography.font(size: 10, weight: .semibold, design: .monospaced))
                             .foregroundStyle(palette.textSecondary)
-                        Text(formatTime(timerRemainingSeconds))
-                            .font(.system(size: 40, weight: .semibold, design: .rounded))
+                        Text(formatTime(timer.remainingSeconds))
+                            .font(typography.font(size: 40, weight: .semibold, design: .rounded))
                             .foregroundStyle(palette.textPrimary)
                     }
                 }
 
                 HStack(spacing: 12) {
-                    TimerActionButton(title: "Start", style: .primary, palette: palette) {
-                        if timerRemainingSeconds == 0 {
-                            timerRemainingSeconds = timerDurationMinutes * 60
+                    TimerActionButton(
+                        title: timer.isRunning ? "Pause" : "Start",
+                        style: .primary,
+                        palette: palette
+                    ) {
+                        if timer.isRunning {
+                            timer.pause()
+                        } else {
+                            timer.start()
                         }
-                        isRunning = true
                     }
-                    TimerActionButton(title: "Pause", style: .secondary, palette: palette) {
-                        isRunning = false
-                    }
-                    TimerActionButton(title: "Reset", style: .ghost, palette: palette) {
-                        isRunning = false
-                        timerRemainingSeconds = timerDurationMinutes * 60
+                    TimerActionButton(title: "Reset", style: .secondary, palette: palette) {
+                        timer.reset()
                     }
                 }
             }
@@ -56,30 +57,24 @@ struct FocusTimerView: View {
             HStack(alignment: .center, spacing: 20) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Duration")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .font(typography.font(size: 11, weight: .semibold, design: .monospaced))
                         .foregroundStyle(palette.textSecondary)
                     NumericInputStepper(
-                        value: $timerDurationMinutes,
+                        value: $timer.durationMinutes,
                         range: 5...90,
                         step: 1,
-                        suffix: "min",
+                        suffix: unitLabel,
                         palette: palette
                     )
-                    .onChange(of: timerDurationMinutes) { _, newValue in
-                        timerRemainingSeconds = Int(newValue * 60)
-                    }
                     HStack(spacing: 8) {
-                        DurationChip(title: "15m", isSelected: Int(timerDurationMinutes) == 15, palette: palette) {
-                            timerDurationMinutes = 15
-                            timerRemainingSeconds = 15 * 60
+                        DurationChip(title: "15 \(chipLabel)", isSelected: Int(timer.durationMinutes) == 15, palette: palette) {
+                            timer.durationMinutes = 15
                         }
-                        DurationChip(title: "25m", isSelected: Int(timerDurationMinutes) == 25, palette: palette) {
-                            timerDurationMinutes = 25
-                            timerRemainingSeconds = 25 * 60
+                        DurationChip(title: "25 \(chipLabel)", isSelected: Int(timer.durationMinutes) == 25, palette: palette) {
+                            timer.durationMinutes = 25
                         }
-                        DurationChip(title: "50m", isSelected: Int(timerDurationMinutes) == 50, palette: palette) {
-                            timerDurationMinutes = 50
-                            timerRemainingSeconds = 50 * 60
+                        DurationChip(title: "50 \(chipLabel)", isSelected: Int(timer.durationMinutes) == 50, palette: palette) {
+                            timer.durationMinutes = 50
                         }
                     }
                 }
@@ -87,16 +82,9 @@ struct FocusTimerView: View {
                 Spacer(minLength: 0)
 
                 HStack(spacing: 16) {
-                    InlineSwitch(title: "Auto DND", isOn: $autoDNDEnabled, palette: palette)
-                    InlineSwitch(title: "End Sound", isOn: $playEndSound, palette: palette)
+                    InlineSwitch(title: "Auto DND", isOn: $timer.autoDNDEnabled, palette: palette)
+                    InlineSwitch(title: "End Sound", isOn: $timer.playEndSound, palette: palette)
                 }
-            }
-        }
-        .onReceive(tick) { _ in
-            guard isRunning, timerRemainingSeconds > 0 else { return }
-            timerRemainingSeconds -= 1
-            if timerRemainingSeconds == 0 {
-                isRunning = false
             }
         }
     }
@@ -119,11 +107,13 @@ private struct TimerActionButton: View {
     let style: TimerButtonStyle
     let palette: Palette
     let action: () -> Void
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(typography.font(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(foregroundColor)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 7)
@@ -169,11 +159,13 @@ private struct DurationChip: View {
     let isSelected: Bool
     let palette: Palette
     let action: () -> Void
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(typography.font(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(isSelected ? palette.textPrimary : palette.textSecondary)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -193,11 +185,13 @@ private struct InlineSwitch: View {
     let title: String
     @Binding var isOn: Bool
     let palette: Palette
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         Toggle(isOn: $isOn) {
             Text(title)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(typography.font(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(palette.textPrimary)
         }
         .toggleStyle(.switch)

@@ -17,11 +17,13 @@ struct ThemedButton: View {
     let size: ThemedButtonSize
     let palette: Palette
     let action: () -> Void
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: fontSize, weight: .semibold, design: .rounded))
+                .font(typography.font(size: fontSize, weight: .semibold, design: .rounded))
                 .foregroundStyle(foregroundColor)
                 .padding(.horizontal, horizontalPadding)
                 .padding(.vertical, verticalPadding)

@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var themeStore: ThemeStore
     let palette: Palette
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -14,7 +16,7 @@ struct SettingsView: View {
                 }
 
                 Text("ACTIVE: \(themeStore.isCustomTheme ? "CUSTOM" : themeStore.presets[themeStore.selectedThemeIndex].name.uppercased())")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .font(typography.font(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(palette.textSecondary)
 
                 if !themeStore.isCustomTheme {
@@ -40,11 +42,86 @@ struct SettingsView: View {
                 }
             }
 
+            InspectorSection(title: "Interface", palette: palette) {
+                HStack {
+                    Text("Time Units")
+                        .font(typography.font(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                    Spacer()
+                    Picker("", selection: Binding(
+                        get: { appSettings.timeUnitStyle },
+                        set: { appSettings.timeUnitStyle = $0 }
+                    )) {
+                        Text("Short").tag(TimeUnitStyle.short)
+                        Text("Long").tag(TimeUnitStyle.long)
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: 160)
+                    .tint(palette.accent)
+                }
+
+                InspectorDivider(palette: palette)
+
+                HStack {
+                    Text("Font Size")
+                        .font(typography.font(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                    Spacer()
+                    NumericInputStepper(
+                        value: $appSettings.fontScalePercent,
+                        range: 80...130,
+                        step: 1,
+                        suffix: "%",
+                        palette: palette
+                    )
+                }
+
+                InspectorDivider(palette: palette)
+
+                HStack {
+                    Text("Font")
+                        .font(typography.font(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                    Spacer()
+                    Picker("", selection: Binding(
+                        get: { appSettings.fontChoice },
+                        set: { appSettings.fontChoice = $0 }
+                    )) {
+                        ForEach(AppFontChoice.allCases) { choice in
+                            Text(choice.displayName).tag(choice)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 170)
+                }
+                Text("Preview: The quick brown fox 123")
+                    .font(typography.font(size: 12, weight: .regular, design: .rounded))
+                    .foregroundStyle(palette.textSecondary)
+
+                InspectorDivider(palette: palette)
+
+                HStack {
+                    Text("Menu Bar Items")
+                        .font(typography.font(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                    Spacer()
+                    NumericInputStepper(
+                        value: $appSettings.menuBarClipboardLimit,
+                        range: 3...20,
+                        step: 1,
+                        suffix: "items",
+                        palette: palette
+                    )
+                }
+            }
+
             if themeStore.isCustomTheme {
                 InspectorSection(title: "Palette Editor", palette: palette) {
                     HStack {
                         Text("MODE")
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .font(typography.font(size: 10, weight: .semibold, design: .monospaced))
                             .foregroundStyle(palette.textSecondary)
                         Spacer()
                         Picker("", selection: $themeStore.customThemeIsDark) {
@@ -80,7 +157,7 @@ struct SettingsView: View {
                     }
 
                     Text("Custom palette changes apply immediately.")
-                        .font(.system(size: 11, weight: .regular, design: .monospaced))
+                        .font(typography.font(size: 11, weight: .regular, design: .monospaced))
                         .foregroundStyle(palette.textSecondary)
                 }
             }
@@ -95,11 +172,13 @@ struct ThemePresetSection: View {
     let selectedPreset: ThemePreset
     let palette: Palette
     let onSelect: (ThemePreset) -> Void
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .font(typography.font(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(palette.textSecondary)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
@@ -122,11 +201,13 @@ struct ThemePill: View {
     let isSelected: Bool
     let palette: Palette
     let action: () -> Void
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         Button(action: action) {
             Text(preset.name.lowercased())
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(typography.font(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(preset.accent.color)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 8)
@@ -151,11 +232,13 @@ struct ThemeModeToggle: View {
     @Binding var isCustomTheme: Bool
     let palette: Palette
     let onChange: () -> Void
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         HStack {
             Text("THEME")
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .font(typography.font(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(palette.textSecondary)
             Spacer()
             Picker("", selection: $isCustomTheme) {
@@ -180,11 +263,13 @@ struct ColorRow: View {
     @Binding var hsv: HSVColor
     let palette: Palette
     @State private var isPickerPresented = false
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         HStack(spacing: 10) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .font(typography.font(size: 10, weight: .semibold, design: .monospaced))
                 .foregroundStyle(palette.textSecondary)
             Spacer()
             RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -195,7 +280,7 @@ struct ColorRow: View {
                         .stroke(palette.panelStroke, lineWidth: 1)
                 )
             Text(hsv.hex)
-                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .font(typography.font(size: 11, weight: .semibold, design: .monospaced))
                 .foregroundStyle(palette.textPrimary)
             ThemedButton(title: "Edit", style: .secondary, size: .small, palette: palette) {
                 isPickerPresented = true
@@ -211,11 +296,13 @@ struct ColorEditorPopover: View {
     let title: String
     @Binding var hsv: HSVColor
     let palette: Palette
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("\(title.uppercased()) COLOR")
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .font(typography.font(size: 12, weight: .semibold, design: .monospaced))
                 .foregroundStyle(palette.textPrimary)
 
             HStack(alignment: .top, spacing: 14) {
@@ -231,10 +318,10 @@ struct ColorEditorPopover: View {
 
             HStack {
                 Text("HEX")
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .font(typography.font(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundStyle(palette.textSecondary)
                 Text(hsv.hex)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                    .font(typography.font(size: 12, weight: .semibold, design: .monospaced))
                     .foregroundStyle(palette.textPrimary)
                 Spacer()
                 RoundedRectangle(cornerRadius: 4, style: .continuous)

@@ -6,6 +6,8 @@ struct NumericInputStepper: View {
     let step: Int
     let suffix: String
     let palette: Palette
+    @EnvironmentObject private var appSettings: AppSettingsStore
+    private var typography: AppTypography { AppTypography(settings: appSettings) }
 
     @State private var text: String
 
@@ -24,7 +26,7 @@ struct NumericInputStepper: View {
                 .frame(width: 38)
                 .multilineTextAlignment(.trailing)
                 .textFieldStyle(.plain)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(typography.font(size: 15, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(palette.textPrimary)
                 .onChange(of: text) { _, newValue in
@@ -46,7 +48,7 @@ struct NumericInputStepper: View {
             }
 
             Text(suffix)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(typography.font(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(palette.textSecondary)
 
             ArrowStepper(
