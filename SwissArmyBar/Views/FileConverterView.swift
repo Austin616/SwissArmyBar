@@ -1,7 +1,6 @@
 import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
-import ImageIO
 
 struct FileConverterView: View {
     @Binding var detectedInputType: String
@@ -15,6 +14,7 @@ struct FileConverterView: View {
     @State private var isDropTargeted = false
     @EnvironmentObject private var appSettings: AppSettingsStore
     private var typography: AppTypography { AppTypography(settings: appSettings) }
+    @State private var isHoveringExport = false
 
     private var suggestedOutputType: String {
         switch detectedInputType {
@@ -91,7 +91,7 @@ struct FileConverterView: View {
                     }
                 }
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(palette.panelFill.opacity(0.6))
+                    .fill(isHoveringExport ? palette.panelFill.opacity(0.7) : palette.panelFill.opacity(0.6))
                     .frame(height: 60)
                     .overlay(
                         Group {
@@ -124,6 +124,7 @@ struct FileConverterView: View {
                             }
                         }
                     )
+                    .onHover { isHoveringExport = $0 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -205,32 +206,12 @@ struct FileConverterView: View {
             conversionStatus = "Drop a file first."
             return
         }
-        guard let image = NSImage(contentsOf: inputURL) else {
-            conversionStatus = "Unsupported file."
-            return
-        }
-
-        let outputExtension = selectedOutputType.lowercased()
-        let outputName = inputURL.deletingPathExtension().lastPathComponent + "-converted.\(outputExtension)"
-        let output = FileManager.default.temporaryDirectory.appendingPathComponent(outputName)
-
-        let success: Bool
-        switch selectedOutputType.uppercased() {
-        case "JPG", "JPEG":
-            success = write(image: image, to: output, type: .jpeg, compression: 0.9)
-        case "PNG":
-            success = write(image: image, to: output, type: .png, compression: 1.0)
-        case "HEIC":
-            success = writeHEIC(image: image, to: output)
-        default:
-            conversionStatus = "Format not supported yet."
-            return
-        }
-
-        if success {
-            outputURL = output
+        do {
+            outputURL = try ImageConversionService.convert(inputURL: inputURL, outputType: selectedOutputType)
             conversionStatus = "Converted to \(selectedOutputType.uppercased())."
-        } else {
+        } catch ImageConversionError.unsupported {
+            conversionStatus = "Format not supported yet."
+        } catch {
             conversionStatus = "Conversion failed."
         }
     }
@@ -274,31 +255,7 @@ struct FileConverterView: View {
         outputURL = nil
     }
 
-    private func write(image: NSImage, to url: URL, type: NSBitmapImageRep.FileType, compression: CGFloat) -> Bool {
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let data = rep.representation(using: type, properties: [.compressionFactor: compression]) else {
-            return false
-        }
-        do {
-            try data.write(to: url)
-            return true
-        } catch {
-            return false
-        }
-    }
-
-    private func writeHEIC(image: NSImage, to url: URL) -> Bool {
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return false
-        }
-        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.heic.identifier as CFString, 1, nil) else {
-            return false
-        }
-        let options: CFDictionary = [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary
-        CGImageDestinationAddImage(destination, cgImage, options)
-        return CGImageDestinationFinalize(destination)
-    }
+    
 }
 
 private struct OutputTypeChip: View {
@@ -309,6 +266,7 @@ private struct OutputTypeChip: View {
     let action: () -> Void
     @EnvironmentObject private var appSettings: AppSettingsStore
     private var typography: AppTypography { AppTypography(settings: appSettings) }
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
@@ -333,7 +291,7 @@ private struct OutputTypeChip: View {
             .frame(minHeight: 30)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? palette.accent.opacity(0.18) : palette.panelFill.opacity(0.6))
+                    .fill(isSelected ? palette.accent.opacity(0.18) : (isHovering ? palette.panelFill.opacity(0.75) : palette.panelFill.opacity(0.6)))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .stroke(isSelected ? palette.accent : palette.panelStroke, lineWidth: 1)
@@ -341,5 +299,6 @@ private struct OutputTypeChip: View {
             )
         }
         .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
     }
 }

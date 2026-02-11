@@ -61,7 +61,7 @@ struct FocusTimerView: View {
                         .foregroundStyle(palette.textSecondary)
                     NumericInputStepper(
                         value: $timer.durationMinutes,
-                        range: 5...90,
+                        range: 1...90,
                         step: 1,
                         suffix: unitLabel,
                         palette: palette

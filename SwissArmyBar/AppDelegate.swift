@@ -2,25 +2,64 @@ import AppKit
 import Combine
 import SwiftUI
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
-    var appEnvironment: AppEnvironment?
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+    var appEnvironment: AppEnvironment? {
+        didSet {
+            if hasLaunched {
+                configurePopover()
+                bindTimerTitle()
+            }
+        }
+    }
 
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var cancellables = Set<AnyCancellable>()
+    private var mainWindow: NSWindow?
+    private var hasLaunched = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        hasLaunched = true
         configureStatusItem()
-        configurePopover()
-        bindTimerTitle()
+        NSApp.setActivationPolicy(.accessory)
+        if appEnvironment != nil {
+            configurePopover()
+            bindTimerTitle()
+        }
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(openMainWindow),
+            name: .openMainWindow,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleWindowVisibilityChange),
+            name: NSWindow.willCloseNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleWindowVisibilityChange),
+            name: NSWindow.didBecomeKeyNotification,
+            object: nil
+        )
+        DispatchQueue.main.async { [weak self] in
+            self?.mainWindow = self?.resolveMainWindow()
+        }
+    }
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
     }
 
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
             button.image = NSImage(systemSymbolName: "timer", accessibilityDescription: "SwissArmyBar")
-            button.imagePosition = .imageLeading
-            button.title = "SAB"
+            button.imagePosition = .imageOnly
+            button.title = ""
+            button.target = self
             button.action = #selector(handleStatusItemClick)
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
@@ -30,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func configurePopover() {
         popover.behavior = .transient
         popover.animates = true
+        popover.delegate = self
 
         if let env = appEnvironment {
             let view = MenuBarPopoverView()
@@ -38,6 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .environmentObject(env.clipboardMonitor)
                 .environmentObject(env.sidebarSettings)
                 .environmentObject(env.timerStore)
+                .environmentObject(env.themeStore)
             popover.contentViewController = NSHostingController(rootView: view)
         }
     }
@@ -51,9 +92,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .sink { [weak self] remaining, isRunning in
                 guard let button = self?.statusItem?.button else { return }
                 if isRunning {
-                    button.title = "⏱ \(Self.formatTime(remaining))"
+                    button.imagePosition = .imageLeading
+                    button.title = Self.formatTime(remaining)
                 } else {
-                    button.title = "SAB"
+                    button.title = ""
+                    button.imagePosition = .imageOnly
                 }
             }
             .store(in: &cancellables)
@@ -61,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func handleStatusItemClick() {
         guard let event = NSApp.currentEvent else { return }
+        NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps])
         if event.type == .rightMouseUp {
             showContextMenu()
         } else {
@@ -70,12 +114,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func togglePopover() {
         guard let button = statusItem?.button else { return }
+        let targetScreen = button.window?.screen
+        let currentScreen = popover.contentViewController?.view.window?.screen
         if popover.isShown {
             popover.performClose(nil)
-        } else {
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            if currentScreen != targetScreen {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps])
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        self.popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+                    }
+                }
+            }
+            return
+        }
+        NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self else { return }
+            self.popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             NSApp.activate(ignoringOtherApps: true)
         }
+    }
+
+    func popoverWillShow(_ notification: Notification) {
+        guard let window = popover.contentViewController?.view.window else { return }
+        window.level = .statusBar
+        window.collectionBehavior.insert([.canJoinAllSpaces, .fullScreenAuxiliary, .transient])
     }
 
     private func showContextMenu() {
@@ -104,10 +169,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 clipboardSubmenu.addItem(empty)
             } else {
                 for item in items {
-                    let title = item.text.count > 40 ? String(item.text.prefix(40)) + "…" : item.text
+                    let rawTitle = item.displayTitle
+                    let title = rawTitle.count > 40 ? String(rawTitle.prefix(40)) + "…" : rawTitle
                     let menuItem = NSMenuItem(title: title, action: #selector(copyClipboardItem(_:)), keyEquivalent: "")
                     menuItem.target = self
-                    menuItem.representedObject = item.text
+                    menuItem.representedObject = item
                     clipboardSubmenu.addItem(menuItem)
                 }
             }
@@ -135,15 +201,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openMainWindow() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.windows.first?.makeKeyAndOrderFront(nil)
+        NSRunningApplication.current.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+        if let window = resolveMainWindow() {
+            mainWindow = window
+            window.collectionBehavior.insert(.moveToActiveSpace)
+            window.makeKeyAndOrderFront(nil)
+            NSApp.setActivationPolicy(.regular)
+            return
+        }
+        guard let env = appEnvironment else { return }
+        let root = ContentView()
+            .environmentObject(env.appSettings)
+            .environmentObject(env.clipboardSettings)
+            .environmentObject(env.clipboardMonitor)
+            .environmentObject(env.sidebarSettings)
+            .environmentObject(env.timerStore)
+            .environmentObject(env.themeStore)
+        let hosting = NSHostingController(rootView: root)
+        let window = NSWindow(contentViewController: hosting)
+        window.setContentSize(NSSize(width: 1024, height: 700))
+        window.title = "SwissArmyBar"
+        window.level = .normal
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        window.makeKeyAndOrderFront(nil)
+        NSApp.setActivationPolicy(.regular)
+        mainWindow = window
     }
 
     @objc private func copyClipboardItem(_ sender: NSMenuItem) {
-        guard let text = sender.representedObject as? String else { return }
+        guard let item = sender.representedObject as? ClipboardItem else { return }
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        switch item.content {
+        case .text(let text):
+            pasteboard.setString(text, forType: .string)
+        case .image(let data):
+            if let image = NSImage(data: data) {
+                pasteboard.writeObjects([image])
+            }
+        }
     }
 
     @objc private func toggleTimer() {
@@ -168,4 +264,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let remaining = max(0, seconds) % 60
         return String(format: "%02d:%02d", minutes, remaining)
     }
+}
+
+private extension AppDelegate {
+    @objc func handleWindowVisibilityChange() {
+        let anyVisible = NSApp.windows.contains { $0.isVisible }
+        NSApp.setActivationPolicy(anyVisible ? .regular : .accessory)
+        mainWindow = resolveMainWindow()
+    }
+
+    func resolveMainWindow() -> NSWindow? {
+        let popoverWindow = popover.contentViewController?.view.window
+        if let window = mainWindow, window != popoverWindow, window.level == .normal {
+            return window
+        }
+        return NSApp.windows.first { window in
+            window != popoverWindow && window.level == .normal
+        }
+    }
+}
+
+extension Notification.Name {
+    static let openMainWindow = Notification.Name("openMainWindow")
 }

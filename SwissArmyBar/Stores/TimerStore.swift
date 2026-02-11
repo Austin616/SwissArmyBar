@@ -4,7 +4,7 @@ import Combine
 final class TimerStore: ObservableObject {
     @Published var durationMinutes: Int {
         didSet {
-            let clamped = min(max(durationMinutes, 5), 90)
+            let clamped = min(max(durationMinutes, 1), 90)
             if durationMinutes != clamped {
                 durationMinutes = clamped
                 return
@@ -44,7 +44,7 @@ final class TimerStore: ObservableObject {
 
         if let data = defaults.data(forKey: storageKey),
            let prefs = try? JSONDecoder().decode(TimerPreferences.self, from: data) {
-            resolvedDuration = min(max(prefs.durationMinutes, 5), 90)
+            resolvedDuration = min(max(prefs.durationMinutes, 1), 90)
             resolvedRemaining = min(max(prefs.remainingSeconds, 0), resolvedDuration * 60)
             resolvedIsRunning = prefs.isRunning
             resolvedAutoDND = prefs.autoDNDEnabled

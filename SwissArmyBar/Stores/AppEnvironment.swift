@@ -7,6 +7,7 @@ final class AppEnvironment: ObservableObject {
     let clipboardMonitor: ClipboardMonitor
     let sidebarSettings: SidebarSettingsStore
     let timerStore: TimerStore
+    let themeStore: ThemeStore
 
     init() {
         let clipboardSettings = ClipboardSettingsStore()
@@ -15,6 +16,6 @@ final class AppEnvironment: ObservableObject {
         self.sidebarSettings = SidebarSettingsStore()
         self.appSettings = AppSettingsStore()
         self.timerStore = TimerStore()
-        
+        self.themeStore = ThemeStore(presets: ThemeCatalog.presets)
     }
 }

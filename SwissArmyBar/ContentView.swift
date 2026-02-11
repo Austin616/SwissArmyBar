@@ -5,12 +5,12 @@ struct ContentView: View {
     @State private var isSidebarCollapsed = false
     @State private var isSidebarExpandedInCompact = false
     @State private var isInfoPresented = false
-    @StateObject private var themeStore = ThemeStore(presets: ThemeCatalog.presets)
     @EnvironmentObject private var appSettings: AppSettingsStore
     @EnvironmentObject private var clipboardSettings: ClipboardSettingsStore
     @EnvironmentObject private var clipboardMonitor: ClipboardMonitor
     @EnvironmentObject private var sidebarSettings: SidebarSettingsStore
     @EnvironmentObject private var timerStore: TimerStore
+    @EnvironmentObject private var themeStore: ThemeStore
     @State private var installedApps: [InstalledApp] = []
 
     @State private var detectedInputType = "PNG"
@@ -71,15 +71,10 @@ struct ContentView: View {
     }
 
     private func detailArea(palette: Palette, isCompact: Bool, isSidebarCollapsed: Bool) -> some View {
-        Group {
-            if isCompact {
-                ScrollView {
-                    detailContent(palette: palette, isCompact: isCompact, isSidebarCollapsed: isSidebarCollapsed)
-                }
-            } else {
-                detailContent(palette: palette, isCompact: isCompact, isSidebarCollapsed: isSidebarCollapsed)
-            }
+        ScrollView(.vertical, showsIndicators: true) {
+            detailContent(palette: palette, isCompact: isCompact, isSidebarCollapsed: isSidebarCollapsed)
         }
+        .alwaysShowScrollIndicators()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -196,4 +191,5 @@ struct ContentView: View {
         .environmentObject(ClipboardMonitor(settings: clipboardSettings))
         .environmentObject(SidebarSettingsStore())
         .environmentObject(TimerStore())
+        .environmentObject(ThemeStore(presets: ThemeCatalog.presets))
 }

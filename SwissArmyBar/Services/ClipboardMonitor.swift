@@ -60,17 +60,44 @@ final class ClipboardMonitor: ObservableObject {
             return
         }
 
+        if let imageData = readImageData(from: pasteboard) {
+            if let first = items.first, first.content == .image(imageData) {
+                return
+            }
+            let source = frontmost?.localizedName ?? "Unknown"
+            let item = ClipboardItem(content: .image(imageData), source: source, timestamp: "just now")
+            items.insert(item, at: 0)
+            trimToLimit()
+            return
+        }
+
         guard let text = pasteboard.string(forType: .string),
               !text.isEmpty else { return }
 
-        if let first = items.first, first.text == text {
+        if let first = items.first, first.content == .text(text) {
             return
         }
 
         let source = frontmost?.localizedName ?? "Unknown"
-        let item = ClipboardItem(text: text, source: source, timestamp: "just now")
+        let item = ClipboardItem(content: .text(text), source: source, timestamp: "just now")
         items.insert(item, at: 0)
         trimToLimit()
+    }
+
+    private func readImageData(from pasteboard: NSPasteboard) -> Data? {
+        if let pngData = pasteboard.data(forType: .png) {
+            return pngData
+        }
+        if let tiffData = pasteboard.data(forType: .tiff),
+           let image = NSImage(data: tiffData),
+           let pngData = image.pngData() {
+            return pngData
+        }
+        if let image = NSImage(pasteboard: pasteboard),
+           let pngData = image.pngData() {
+            return pngData
+        }
+        return nil
     }
 
     private func trimToLimit() {

@@ -24,6 +24,7 @@ struct SwissArmyBarApp: App {
                 .environmentObject(environment.clipboardMonitor)
                 .environmentObject(environment.sidebarSettings)
                 .environmentObject(environment.timerStore)
+                .environmentObject(environment.themeStore)
         }
         .defaultSize(width: 1024, height: 700)
         .windowResizability(.contentMinSize)

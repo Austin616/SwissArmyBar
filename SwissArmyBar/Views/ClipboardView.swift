@@ -36,58 +36,33 @@ struct ClipboardView: View {
                         .font(typography.font(size: 11, weight: .regular, design: .rounded))
                         .foregroundStyle(palette.textSecondary)
                     Spacer()
+                    ThemedButton(title: "Clear All", style: .ghost, size: .small, palette: palette) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            monitor.clear()
+                        }
+                    }
                     Text("\(min(monitor.items.count, settings.historyLimit)) saved")
                         .font(typography.font(size: 11, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
                 }
-                let visibleItems = Array(monitor.items.prefix(settings.historyLimit))
-                ForEach(visibleItems) { item in
-                    VStack(spacing: 8) {
-                        HStack(spacing: 10) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(item.text)
-                                    .font(typography.font(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(palette.textPrimary)
-                                    .lineLimit(1)
-                                HStack(spacing: 8) {
-                                    Text(item.source.uppercased())
-                                        .font(typography.font(size: 9, weight: .semibold, design: .monospaced))
-                                        .foregroundStyle(palette.textSecondary)
-                                    Text(item.timestamp)
-                                        .font(typography.font(size: 10, weight: .regular, design: .rounded))
-                                        .foregroundStyle(palette.textSecondary)
-                                }
-                            }
-                            Spacer()
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    monitor.remove(item)
-                                }
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(palette.textSecondary)
-                                    .frame(width: 26, height: 26)
-                                    .background(
-                                        Circle()
-                                            .fill(palette.panelFill.opacity(0.7))
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            copyToClipboard(item.text)
-                        }
-                        if item.id != visibleItems.last?.id {
-                            Divider()
-                                .overlay(palette.divider)
+            let visibleItems = Array(monitor.items.prefix(settings.historyLimit))
+            ForEach(visibleItems) { item in
+                ClipboardItemRow(
+                    item: item,
+                    palette: palette,
+                    typography: typography,
+                    showDivider: item.id != visibleItems.last?.id,
+                    onSelect: { copyToClipboard(item) },
+                    onDelete: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            monitor.remove(item)
                         }
                     }
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
-                }
+                )
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
-            .animation(.easeInOut(duration: 0.2), value: monitor.items)
+        }
+        .animation(.easeInOut(duration: 0.2), value: monitor.items)
 
             if let toastMessage {
                 Text(toastMessage)
@@ -121,7 +96,7 @@ struct ClipboardView: View {
                         .font(typography.font(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(palette.textPrimary)
                 }
-                Text("Listening for text snippets only.")
+                Text("Listening for text and images.")
                     .font(typography.font(size: 11, weight: .regular, design: .rounded))
                     .foregroundStyle(palette.textSecondary)
             }
@@ -188,10 +163,17 @@ struct ClipboardView: View {
         )
     }
 
-    private func copyToClipboard(_ text: String) {
+    private func copyToClipboard(_ item: ClipboardItem) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
+        switch item.content {
+        case .text(let text):
+            pasteboard.setString(text, forType: .string)
+        case .image(let data):
+            if let image = NSImage(data: data) {
+                pasteboard.writeObjects([image])
+            }
+        }
         showToast("Now saved to clipboard")
     }
 
@@ -361,5 +343,81 @@ private struct ExcludedAppRow: View {
                 .fill(isBlocked.wrappedValue ? palette.accent.opacity(0.08) : (isHovering ? palette.panelFill.opacity(0.45) : Color.clear))
         )
         .onHover { isHovering = $0 }
+    }
+}
+
+private struct ClipboardItemRow: View {
+    let item: ClipboardItem
+    let palette: Palette
+    let typography: AppTypography
+    let showDivider: Bool
+    let onSelect: () -> Void
+    let onDelete: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                if let imageData = item.imageData,
+                   let image = NSImage(data: imageData) {
+                    Image(nsImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 44, height: 44)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(palette.panelStroke.opacity(0.7), lineWidth: 1)
+                        )
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.displayTitle)
+                        .font(typography.font(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(palette.textPrimary)
+                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        if item.isImage {
+                            Text("IMAGE")
+                                .font(typography.font(size: 9, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(palette.textSecondary)
+                        }
+                        Text(item.source.uppercased())
+                            .font(typography.font(size: 9, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(palette.textSecondary)
+                        Text(item.timestamp)
+                            .font(typography.font(size: 10, weight: .regular, design: .rounded))
+                            .foregroundStyle(palette.textSecondary)
+                    }
+                }
+                Spacer()
+                Button(action: onDelete) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(palette.textSecondary)
+                        .frame(width: 26, height: 26)
+                        .background(
+                            Circle()
+                                .fill(palette.panelFill.opacity(0.7))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isHovering ? palette.panelFill.opacity(0.55) : Color.clear)
+            )
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onSelect)
+            .onHover { isHovering = $0 }
+
+            if showDivider {
+                Divider()
+                    .overlay(palette.divider)
+            }
+        }
     }
 }
